@@ -552,41 +552,33 @@ Device* devices;
 void simDv( devices )
 Device* devices;
 {
+	double inp1, inp2;
 	unsigned char i, j;
 	for ( j = 0; j < num_cnx; ++j )
 	{
 		for ( i = 0; i < num_dev; ++i )
 		{
+			inp1 = devices[devices[i].in_dev[0]].value;
+			inp2 = devices[devices[i].in_dev[1]].value;
 			switch ( devices[i].type )
 			{
 				case AND_GATE:
-					devices[i].value =
-					(devices[devices[i].in_dev[0]].value > 0.5 &&
-					devices[devices[i].in_dev[1]].value > 0.5 ) ? 5.0 : 0.0;
+					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 5.0 : 0.0;
 					break;
 				case OR_GATE:
-					devices[i].value =
-					(devices[devices[i].in_dev[0]].value > 0.5 ||
-					devices[devices[i].in_dev[1]].value > 0.5 ) ? 5.0 : 0.0;
+					devices[i].value = (inp1 > 0.5 || inp2 > 0.5 ) ? 5.0 : 0.0;
 					break;
 				case XOR_GATE:
-					devices[i].value =
-					(devices[devices[i].in_dev[0]].value > 0.5 ^
-					devices[devices[i].in_dev[1]].value > 0.5 ) ? 5.0 : 0.0;
+					devices[i].value = (inp1 > 0.5 ^ inp2 > 0.5 ) ? 5.0 : 0.0;
 					break;
 				case NND_GATE:
-					devices[i].value =
-					(devices[devices[i].in_dev[0]].value > 0.5 &&
-					devices[devices[i].in_dev[1]].value > 0.5 ) ? 0.0 : 5.0;
+					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 0.0 : 5.0;
 					break;
 				case NOR_GATE:
-					devices[i].value =
-					(devices[devices[i].in_dev[0]].value > 0.5 ||
-					devices[devices[i].in_dev[1]].value > 0.5 ) ? 0.0 : 5.0;
+					devices[i].value = (inp1 > 0.5 || inp2 > 0.5 ) ? 0.0 : 5.0;
 					break;
 				case NOT_GATE:
-					devices[i].value =
-					(devices[devices[i].in_dev[0]].value > 0.5) ? 0.0 : 5.0;
+					devices[i].value = (inp1 > 0.5) ? 0.0 : 5.0;
 					break;
 				default:
 					break;
@@ -608,7 +600,7 @@ int main()
 	char k_in;
 
 	/* definitions */
-	initTerm( &gterm, CRTBASE );
+	initTerm( &gterm, 16 );
 	cursmode = DEV_MODE;
 	num_dev = 1;
 	sel_dev = 0;
