@@ -63,22 +63,36 @@ static int and_dat[] = { 9,
 static int nand_dat[] = { 13,
 			0, 5, 5, 5,
 			0, 30, 5, 30,
-			40, 17, 45, 17,
+			46, 17, 51, 17,
 			5, 0, 30, 0,
 			30, 0, 40, 10,
 			40, 10, 40, 25,
-			
-			40, 17, 43, 12,
-			43, 12, 46, 17,
+			40, 17, 43, 15,
+			43, 15, 46, 17,
 			46, 17, 43, 19,
 			43, 19, 40, 17,
-			
 			40, 25, 30, 35,
 			30, 35, 5, 35,
 			5, 35, 5, 0
 			};
 
-static int nor_dat[] = {};
+static int nor_dat[] = {15,
+			0, 5, 9, 5,
+			0, 30, 9, 30,
+			46, 17, 51, 17,
+			5, 0, 30, 0,
+			30, 0, 40, 10,
+			40, 10, 40, 25,
+			40, 17, 43, 15,
+			43, 15, 46, 17,
+			46, 17, 43, 19,
+			43, 19, 40, 17,
+			40, 25, 30, 35,
+			30, 35, 5, 35,
+			5, 35, 15, 25,
+			15, 25, 15, 10,
+			15, 10, 5, 0
+			};
 
 static int or_dat[] = { 11,
 			0, 5, 9, 5,
@@ -111,7 +125,18 @@ static int xor_dat[] = { 14,
 			15, 10, 5, 0
 			};
 
-static int not_dat[] = {};
+static int not_dat[] = { 10,
+			0, 17, 9, 17,
+			9, 0, 9, 0,
+			46, 17, 51, 17,
+			40, 17, 43, 15,
+			43, 15, 46, 17,
+			46, 17, 43, 19,
+			43, 19, 40, 17,
+			9, 0, 40, 17,
+			40, 17, 9, 35,
+			9, 35, 9, 0
+			};
 
 typedef struct sDevice
 {
@@ -234,7 +259,7 @@ Device* device;
 		/*puts("Type: [A]nd  [O]r  [S]ignal  [X]or\n[N]AND  [W]ire  [>]Next  [Q]uit");*/
 		term->gotoxy( term, 0, 21 );
 		term->puts( term, "\033[0J" );
-		term->puts( term, "Type: [A]nd  [O]r  [S]ignal  [X]or\r\nNAN[D]  [W]ire  [>]Next  [Q]uit");
+		term->puts( term, "Type: [A]nd  [O]r  [S]ignal  [X]or  No[R]\r\n[N]ot  Nan[D]  [W]ire  [>]Next  [Q]uit");
 		/* input = getch(); */
 		input = term->getch( term );
 		input |= 32;
@@ -266,6 +291,18 @@ Device* device;
 		{
 			device->type=NND_GATE;
 			device->shape=nand_dat;
+			break;
+		}
+		else if (input=='r')
+		{
+			device->type=NOR_GATE;
+			device->shape=nor_dat;
+			break;
+		}
+		else if (input=='n')
+		{
+			device->type=NOT_GATE;
+			device->shape=not_dat;
 			break;
 		}
 		else if (input=='>')
@@ -310,6 +347,10 @@ int t, x, y;
 		device->shape = xor_dat;
 	else if ( t == NND_GATE )
 		device->shape = nand_dat;
+	else if ( t == NOR_GATE )
+		device->shape = nor_dat;
+	else if ( t == NOT_GATE )
+		device->shape = not_dat;
 	
 }
 
@@ -444,6 +485,12 @@ int i;
 		case NND_GATE:
 			term->puts( term, "NAND GATE" );
 			break;
+		case NOR_GATE:
+			term->puts( term, "NOR GATE" );
+			break;
+		case NOT_GATE:
+			term->puts( term, "NOT GATE" );
+			break;
 		default:
 			term->puts( term, "UNKNOWN" );
 			break;
@@ -531,6 +578,15 @@ Device* devices;
 					devices[i].value =
 					(devices[devices[i].in_dev[0]].value > 0.5 &&
 					devices[devices[i].in_dev[1]].value > 0.5 ) ? 0.0 : 5.0;
+					break;
+				case NOR_GATE:
+					devices[i].value =
+					(devices[devices[i].in_dev[0]].value > 0.5 ||
+					devices[devices[i].in_dev[1]].value > 0.5 ) ? 0.0 : 5.0;
+					break;
+				case NOT_GATE:
+					devices[i].value =
+					(devices[devices[i].in_dev[0]].value > 0.5) ? 0.0 : 5.0;
 					break;
 				default:
 					break;
