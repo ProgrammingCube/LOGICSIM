@@ -685,6 +685,7 @@ int main()
 					cursmode = CNX_MODE;
 				else if ( cursmode == CNX_MODE )
 					cursmode = DEV_MODE;
+				break;
 			case 'd':
 				devices[sel_dev].x += 10;
 				break;
