@@ -1,0 +1,5 @@
+r logicsim.c
+cc -E500 logicsim
+as logicsim
+ln logicsim.o geofftrm.o m.lib c.lib
+w logicsim.com
