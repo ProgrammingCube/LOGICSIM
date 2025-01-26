@@ -139,16 +139,6 @@ static int not_dat[] = { 10,
 			9, 35, 9, 0
 			};
 
-#define	WIRE		0
-#define	XNR_GATE	1
-#define	XOR_GATE	2
-#define	NOT_GATE	3
-#define	NOR_GATE	4
-#define	OR_GATE		5
-#define	NND_GATE	6
-#define	AND_GATE	7
-#define	SIGNAL		8
-
 /* shape pointer table
 use this later for setting shape based on type
 */
@@ -387,6 +377,48 @@ int t, x, y;
 	device->shape = shapeTbl[t];
 }
 
+/* Calculate source coordinates
+*/
+void clSrcCrd( device, src_dev, src_x, src_y )
+Device* device;
+int src_dev;
+int* src_x, src_y;
+{
+	/* if Device is a SIGNAL */
+	if (device[src_dev].shape[0] == 1)
+	{
+		*src_y = device[src_dev].y + 0;
+		*src_x = device[src_dev].x + 20;
+	}
+	/* else draw as a Device */
+	else
+	{
+		*src_x = device[src_dev].x + device[src_dev].shape[11];
+		*src_y = device[src_dev].y + device[src_dev].shape[12];
+	}
+}
+
+/* Calculate target coordinates
+*/
+void clTrgCrd( device, trg_dev, input, trg_x, trg_y )
+Device* device;
+int trg_dev;
+char input;
+int* trg_x, trg_y;
+{
+	if (input == 1)
+	{
+		*trg_x = device[trg_dev].x + device[trg_dev].shape[1];
+		*trg_y = device[trg_dev].y + device[trg_dev].shape[2];
+	}
+	else
+	{
+		*trg_x = device[trg_dev].x + device[trg_dev].shape[5];
+		*trg_y = device[trg_dev].y + device[trg_dev].shape[6];
+	}
+}
+
+
 /* Update Cnxtion structure
 used to update the Cnxtion structure's coordinates after moves and such
 */
@@ -404,29 +436,8 @@ Cnxtion* cnx;
 		trg_dev = cnx[i].trg_dev;
 		input = cnx[i].input;
 
-		/* Calculate source coordinates */
-		if ( devices[src_dev].shape[0] == 1 )
-		{
-			cnx[i].src_y = devices[src_dev].y + 0;   /* Adjust as needed based on your device shape */
-			cnx[i].src_x = devices[src_dev].x + 20; /* Adjust as needed based on your device shape */
-		}
-		else
-		{
-			cnx[i].src_x = devices[src_dev].x + devices[src_dev].shape[11];
-			cnx[i].src_y = devices[src_dev].y + devices[src_dev].shape[12]; 
-		}
-
-		/* Calculate target coordinates based on input port */
-		if (input == 1)
-		{
-			cnx[i].trg_x = devices[trg_dev].x + devices[trg_dev].shape[1]; 
-			cnx[i].trg_y = devices[trg_dev].y + devices[trg_dev].shape[2];
-		}
-		else
-		{
-			cnx[i].trg_x = devices[trg_dev].x + devices[trg_dev].shape[5]; 
-			cnx[i].trg_y = devices[trg_dev].y + devices[trg_dev].shape[6]; 
-		}
+		clSrcCrd( devices, src_dev, &cnx[i].src_x, &cnx[i].src_y );
+		clTrgCrd( devices, trg_dev, input, &cnx[i].trg_x, &cnx[i].trg_y );
         }
 }
 
@@ -461,27 +472,9 @@ Cnxtion* cnx;
 	clrLwrSn( term );
 	term->puts( term, "Select Target Device Input [1] or [2]:" );
 	_scanf( term, 'd', &inpt);
-
-	/* rethink this how */
-	/* Calculate source coordinates */
-	if ( dev[src_dev].shape[0] == 1 )
-	{
-		cnx[num_cnx].src_y = dev[src_dev].y + 0;   /* Adjust as needed based on your device shape */
-		cnx[num_cnx].src_x = dev[src_dev].x + 20; /* Adjust as needed based on your device shape */
-	}
-	else
-	{
-		cnx[num_cnx].src_x = dev[src_dev].x + dev[src_dev].shape[11];
-		cnx[num_cnx].src_y = dev[src_dev].y + dev[src_dev].shape[12]; 
-	}
-
-	if (inpt == 1) {
-	    trg_x = dev[trg_dev].x + dev[trg_dev].shape[1];
-	    trg_y = dev[trg_dev].y + dev[trg_dev].shape[2];
-	} else {
-	    trg_x = dev[trg_dev].x + dev[trg_dev].shape[5];
-	    trg_y = dev[trg_dev].y + dev[trg_dev].shape[6];
-	}
+	
+	clSrcCrd( dev, src_dev, &src_x, &src_y );
+	clTrgCrd( dev, trg_dev, inpt, &trg_x, &trg_y );
 
 	cnx[num_cnx].src_x = src_x;
 	cnx[num_cnx].src_y = src_y;
@@ -580,23 +573,30 @@ Device* devices;
 			inp2 = devices[devices[i].in_dev[1]].value;
 			switch ( devices[i].type )
 			{
-				case AND_GATE:
-					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 5.0 : 0.0;
+				case WIRE:
 					break;
-				case OR_GATE:
-					devices[i].value = (inp1 > 0.5 || inp2 > 0.5 ) ? 5.0 : 0.0;
+				case XNR_GATE:
+					devices[i].value = (inp1 > 0.5 ^ inp2 > 0.5 ) ? 0.0 : 5.0;
 					break;
 				case XOR_GATE:
 					devices[i].value = (inp1 > 0.5 ^ inp2 > 0.5 ) ? 5.0 : 0.0;
 					break;
-				case NND_GATE:
-					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 0.0 : 5.0;
+				case NOT_GATE:
+					devices[i].value = (inp1 > 0.5) ? 0.0 : 5.0;
 					break;
 				case NOR_GATE:
 					devices[i].value = (inp1 > 0.5 || inp2 > 0.5 ) ? 0.0 : 5.0;
 					break;
-				case NOT_GATE:
-					devices[i].value = (inp1 > 0.5) ? 0.0 : 5.0;
+				case OR_GATE:
+					devices[i].value = (inp1 > 0.5 || inp2 > 0.5 ) ? 5.0 : 0.0;
+					break;
+				case NND_GATE:
+					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 0.0 : 5.0;
+					break;
+				case AND_GATE:
+					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 5.0 : 0.0;
+					break;
+				case SIGNAL:
 					break;
 				default:
 					break;
