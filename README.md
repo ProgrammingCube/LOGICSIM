@@ -5,7 +5,7 @@ A CP/M 2.2 graphical logic gate simulator for the Altairduino using the Geoff te
 This is written for the Aztec C Compiler.
 
 ## IMPORTANT NOTICE
-Right now, the program is built in such a way it uses the SECONDARY SIO card for I/O, this allows me to develop the software rapidly. If you wish to change this to the native PRIMARY SIO card, please change the base address in the initTerm() function in logicsim.c. This number should be decimal 16 in that case!
+Be sure to check the initTerm() function in logicsim.c! If you want to draw to the main display, please use 16 as the port base. If you are sending software over the main port and using the altair's native terminal as a secondary input/output, please use 18
 
 
 ### Usage
