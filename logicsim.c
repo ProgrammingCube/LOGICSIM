@@ -139,6 +139,32 @@ static int not_dat[] = { 10,
 			9, 35, 9, 0
 			};
 
+#define	WIRE		0
+#define	XNR_GATE	1
+#define	XOR_GATE	2
+#define	NOT_GATE	3
+#define	NOR_GATE	4
+#define	OR_GATE		5
+#define	NND_GATE	6
+#define	AND_GATE	7
+#define	SIGNAL		8
+
+/* shape pointer table
+use this later for setting shape based on type
+*/
+int* shapeTbl[] = {
+			NULL,		/* wire_dat */
+			NULL,		/* xnor_dat */
+			xor_dat,
+			not_dat,
+			nor_dat,
+			or_dat,
+			nand_dat,
+			and_dat,
+			sig_dat,
+			NULL		/* null terminator */
+			};
+
 /* Device struct
 A Device in this sense is any elemnt you draw on the screen that is not
 text, the cursor, or airwires
@@ -358,21 +384,7 @@ int t, x, y;
 	device->x = x;
 	device->y = y;
 	device->scale = 1.0;
-	if ( t == SIGNAL )
-		device->shape = sig_dat;
-	else if ( t == AND_GATE )
-		device->shape = and_dat;
-	else if ( t == OR_GATE )
-		device->shape = or_dat;
-	else if ( t == XOR_GATE )
-		device->shape = xor_dat;
-	else if ( t == NND_GATE )
-		device->shape = nand_dat;
-	else if ( t == NOR_GATE )
-		device->shape = nor_dat;
-	else if ( t == NOT_GATE )
-		device->shape = not_dat;
-	
+	device->shape = shapeTbl[t];
 }
 
 /* Update Cnxtion structure
