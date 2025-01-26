@@ -3,37 +3,40 @@
 /* DEFINITIONS */
 /* #ifndef	MEMSET
 #define	MEMSET*/
-void *memset(d, b, s)
+void *memset( d, b, s )
 void* d;
 unsigned char b;
 unsigned int s;
 {
-	unsigned char* p = s;
-	while (s--)
+	unsigned char* p = d;
+	while ( s-- )
 		*p++ = b;
-	return s;
+	return d;
 }
 /* #endif */
 
 char _geofgch( term )
 Geoff* term;
 {
-	while (!(in(term->_crtbase) & 1));
-	return in(term->_crtio);
+	while ( ! ( in( term->_crtbase ) & 1 ) );
+	return in( term->_crtio );
 }
 
 char _geofgcr( term )
 Geoff* term;
 {
 	char c, first_c = 0;
-	while (1)
+	while ( 1 )
 	{
+		/*
 		while (!(in(term->_crtbase) & 1));
 		term->putchar(term, c = in(term->_crtio) );
+		*/
+		term->putchar( term, c = ( term->getch( term ) ) );
 
-		if (!first_c) first_c = c;
+		if ( !first_c ) first_c = c;
 
-		if (c == '\r' || c == '\n') return first_c;
+		if ( c == '\r' || c == '\n' ) return first_c;
 	}
 }
 
@@ -41,7 +44,7 @@ void _geofpch( term, c )
 Geoff* term;
 char c;
 {
-	out( term->_crtio, c);
+	out( term->_crtio, c );
 }
 
 void _geofpts( term, s )
@@ -50,9 +53,7 @@ char* s;
 {
 	char* p = s;
 	while ( *p )
-	{
 		term->putchar( term, *p++ );
-	}
 }
 
 void _geofcrs( term, m )

@@ -4,20 +4,21 @@
 please link against my cpm and geofftrm libraries 
 */
 
-#define ABS(x) ((x) < 0 ? -(x) : (x))
-
-#define	MAX_CNX	32
-#define	SIOSTAT	16
-#define	SIODATA	17
+/* maximum number of Cnxtions */
+#define	MAX_CNX	256
+/* maximum number of Devices */
+#define	MAX_DEV	256
+/* size of scanf buffer */
 #define	SCANBUF	15
 
+/* Aztec C does not include NULL but does do EOF/EOL */
 #define	NULL	0
 
+/* mode for state machine, Device mode or Cnxtion mode */
 #define	DEV_MODE	1
 #define	CNX_MODE	2
 
 /* K&R C did not have enums. What a biiiitch... */
-
 #define	WIRE		0
 #define	XNR_GATE	1
 #define	XOR_GATE	2
@@ -28,8 +29,8 @@ please link against my cpm and geofftrm libraries
 #define	AND_GATE	7
 #define	SIGNAL		8
 
+/* Aztec C seems to need functions from any library other than c.lib to be extern'd */
 extern double atof();
-/* extern int atoi(); */
 
 int num_dev;		/* number of devices */
 int num_cnx;		/* number of connections */
@@ -39,8 +40,8 @@ char cursmode;		/* selection/cursor mode */
 
 /* shape contains a 1D array describing the shape
    First element is number of line segments
-   Successive element pairs are line segment
-   coordinates
+   Next three lines are the input and output lines ( 2 input and 1 output )
+   Successive lines make up the rest of the shape
    Each Device is drawn locally to the provided
    x and y coordinates.
 */
@@ -138,35 +139,39 @@ static int not_dat[] = { 10,
 			9, 35, 9, 0
 			};
 
+/* Device struct
+A Device in this sense is any elemnt you draw on the screen that is not
+text, the cursor, or airwires
+*/
 typedef struct sDevice
 {
-	char type;
-	int x, y;
-	int* shape;
-	double value;
-	float scale;
-	int in_dev[2];
-	char output;
+	char type;			/* type of Device */
+	int x, y;			/* coordinates to draw */
+	int* shape;			/* pointer to which Device to draw */
+	double value;			/* Voltage value of Device */
+	float scale;			/* Scale to draw locally */
+	int in_dev[2];			/* Two inputs. Designate which devices are wired up */
+	char output;			/* Designates which output device is hooked up */
 } Device;
 
+/* Cnxtion struct
+A Cnxtion is a connection between two Devices
+*/
 typedef struct sCnxtion
 {
-	int src_x, src_y;
-	int trg_x, trg_y;
-	int src_dev;
-	int trg_dev;
-	char input;
-	char value;
+	int src_x, src_y;		/* source Device's xy coords */
+	int trg_x, trg_y;		/* target Device's xy coords */
+	int src_dev;			/* source Device index */
+	int trg_dev;			/* target Device index */
+	char input;			/* input Device index */
+	char value;			/* Voltage value of Cnxtion */
 } Cnxtion;
 
-/*
-char getch()
-{
-	while (!(in(SIOSTAT) & 1));
-	return in(SIODATA);
-}
+/* scanf
+hand-rolled scanf allows programmer to designate which Terminal object to use
+parameter 'f' designates the format of the input to read
+parameter 'a' designates the pointer into which to store the input
 */
-
 void _scanf( term, f, a )
 Geoff* term;
 char f;
@@ -180,36 +185,42 @@ void* a;
 
 	while (i < SCANBUF)
 	{
-		/* c = getch(); */
+		/* term->putchar( term, buf[i++] = c ); */
 		c = term->getch( term );
+		/* handle ^M or ENTER */
 		if (c == '\r' || c == '\n')
 		{
 			i++;
 			break;
 		}
+		/* handle BACKSPACE */
 		else if (c == 0x08 && i > 0)
 		{
 			term->puts( term, "\010 \010" );
-			/*
-			term->putchar( term, 0x08 );
-			term->putchar( term, ' ' );
-			term->putchar( term, 0x08 );
-			*/
 			i--; 
 			continue;
 		}
-		/*putchar(buf[i++] = c);*/
+		/* print char and increment buffer */
 		term->putchar( term, buf[i++] = c );
 	}
+	/* eol */
 	buf[i] = 0;
-	term->puts( term, "");
 
+	/* format check */
 	if ( f == 'd' )
 		*(int*)a = atoi(buf);
 	else if ( f == 'f' )
 		*(double*)a = atof(buf);
 }
 
+/* clear bottom of screen
+gterm.gotoxy( &gterm, 0, 21 );
+gterm.puts( &gterm, "\033[0J" );
+*/
+
+/* Draw cursor
+cursor will be 10 pixels tall and wide
+*/
 void drawCurs( term, x, y )
 Geoff* term;
 int x, y;
@@ -232,6 +243,7 @@ Device* device;
 	for ( i = 1; i < numseg; i+=4 )
 	{
 		float x, y, u, v;
+		/* multiplied against scale to scale Device */
 		x = device->x + (device->shape[i]   * device->scale);
 		y = device->y + (device->shape[i+1] * device->scale);
 		u = device->x + (device->shape[i+2] * device->scale);
@@ -245,6 +257,10 @@ Device* device;
 	}
 }
 
+/* Edit Device
+edit the currently selected Device
+the Device is passed in via a pointer to that element in the Device structure
+*/
 void editDv( term, device )
 Geoff* term;
 Device* device;
@@ -256,13 +272,11 @@ Device* device;
 	/* choose device type */
 	do
 	{
-		/*puts("Type: [A]nd  [O]r  [S]ignal  [X]or\n[N]AND  [W]ire  [>]Next  [Q]uit");*/
 		term->gotoxy( term, 0, 21 );
 		term->puts( term, "\033[0J" );
 		term->puts( term, "Type: [A]nd  [O]r  [S]ignal  [X]or  No[R]\r\n[N]ot  Nan[D]  [W]ire  [>]Next  [Q]uit");
-		/* input = getch(); */
 		input = term->getch( term );
-		input |= 32;
+		input |= 32;				/* turn to lowercase */
 		if (input=='a')
 		{
 			device->type=AND_GATE;
@@ -318,13 +332,19 @@ Device* device;
 	if ( input == 'q' )
 		return;
 	/* choose value */
-	/*puts("Enter a value:");*/
 	term->gotoxy( term, 0, 21 );
 	term->puts( term, "\033[0J" );
 	term->puts( term, "Enter a value: " );
 	_scanf( term, 'f', &device->value);
 }
 
+/* Set up Device
+Takes a pointer to the location in the Devices array and imbues it with
+startup values
+parameter 't' is Device type
+parameter 'x' is x coord
+parameter 'y' is y coord
+*/
 void setupDev( device, t, x, y )
 Device* device;
 int t, x, y;
@@ -354,6 +374,9 @@ int t, x, y;
 	
 }
 
+/* Update Cnxtion structure
+used to update the Cnxtion structure's coordinates after moves and such
+*/
 void updateCn( devices, cnx)
 Device* devices;
 Cnxtion* cnx;
@@ -394,6 +417,9 @@ Cnxtion* cnx;
         }
 }
 
+/* Connect Devices
+selects two Devices and creates a Cnxtion using the freshly realloc'ed array
+*/
 void connDv( term, dev, cnx )
 Geoff* term;
 Device* dev;
@@ -402,9 +428,9 @@ Cnxtion* cnx;
 	char loc_buf[8];
 	int src_dev, trg_dev, inpt;
 	int src_x, src_y, trg_x, trg_y;
-	num_cnx--;
-	/* printf("Connect Devices\nSelect Source Device (0-%d): \n", num_dev - 1); */
+	num_cnx--;				/* decrement counter from realloc */
 	
+	/* simple menu to select source, target, and port to connect to */
 	term->gotoxy( term, 0, 21 );
 	term->puts( term, "\033[0J" );
 	term->puts( term, "Connect Devices\r\nSelect Source Device (0-" );
@@ -413,8 +439,6 @@ Cnxtion* cnx;
 	term->puts( term, loc_buf );
 	term->puts( term, "): \r\n" );
 	_scanf( term, 'd', &src_dev);
-	/*printf("Select Target Device (0-%d): \n", num_dev - 1);*/
-	
 	term->gotoxy( term, 0, 21 );
 	term->puts( term, "\033[0J" );
 	term->puts( term, "Select Target Device (0-" );
@@ -423,8 +447,6 @@ Cnxtion* cnx;
 	term->puts( term, loc_buf );
 	term->puts( term, "): \r\n" );
 	_scanf( term, 'd', &trg_dev);
-	/*printf("Select Target Device Input [1] or [2]:");*/
-	
 	term->gotoxy( term, 0, 21 );
 	term->puts( term, "\033[0J" );
 	term->puts( term, "Select Target Device Input [1] or [2]:" );
@@ -460,9 +482,13 @@ Cnxtion* cnx;
 	cnx[num_cnx].src_dev = src_dev;
 	cnx[num_cnx].trg_dev = trg_dev;
 
-	num_cnx++;
+	num_cnx++;				/* reincrement number of cnxtions */
 }
 
+/* Render Device String
+prints parameter 'i's Device type to terminal
+restructure to 1D lookup table
+*/
 void rndrDvS( term, devices, i )
 Geoff* term;
 Device* devices;
@@ -497,6 +523,9 @@ int i;
 	}
 }
 
+/* Print Devices
+populates screen's display with varioius information about Devices and selected Device
+*/
 void prntDev( term, devices )
 Geoff* term;
 Device* devices;
@@ -504,6 +533,8 @@ Device* devices;
 	char loc_buf[16];
 	unsigned char i;
 	int loc_x, loc_y = 0;
+
+	/* Selected Device - bottom of screen */
 	term->gotoxy( term, 0, 21 );
 	term->puts( term, "Device: ");
 	memset( loc_buf, 0, sizeof(loc_buf) );
@@ -527,6 +558,7 @@ Device* devices;
 	else if ( cursmode == CNX_MODE )
 		term->putchar( term, 'C' );
 
+	/* Devices - left side of screen */
 	loc_y = 1;
 	/* loc_x = 57; */
 	loc_x = 63;
@@ -535,7 +567,6 @@ Device* devices;
 	term->gotoxy( term, loc_x, loc_y );
 	for (i = 0; i < num_dev; ++i )
 	{
-		/* term->puts( term, "Device: " ); */
 		memset( loc_buf, 0, sizeof(loc_buf) );
 		sprintf( loc_buf, "%d", i );
 		term->puts( term, loc_buf );
@@ -548,7 +579,10 @@ Device* devices;
 	}
 }
 
-/* turn this into a jump table */
+/* Simulate Devices
+simulates Device's voltages using input nodes voltages and boolean operations
+ turn this into a jump table
+*/
 void simDv( devices )
 Device* devices;
 {
@@ -607,8 +641,10 @@ int main()
 	sel_cnx = 0;
 	num_cnx = 0;
 
+	/* no initial Cnxtions */
 	cnxtions = NULL;
 
+	/* malloc first Device */
 	devices = (Device*)malloc(sizeof(Device));
 	if (devices == NULL)
 	{
@@ -620,31 +656,25 @@ int main()
 	do
 	{
 		int k;
-		/* drawing stuff */
 		gterm.clear( &gterm );
-		if ( num_dev )
-		{
-			simDv( devices );
-			prntDev( &gterm, devices );
-			updateCn( devices, cnxtions );
-		}
+		
+		/* if number of Devices > 0, draw Devices */
 		for (k=0; k<num_dev; ++k)
 		{
 			drawDv( &gterm, &devices[k] );
 		}
-
-		if ( cursmode == DEV_MODE )
+		/* if number of Devices > 0, simulate then draw Device info */
+		if ( num_dev )
 		{
-			if ( num_dev )
-				drawCurs( &gterm, devices[sel_dev].x, devices[sel_dev].y );
-		}
-		else if ( cursmode == CNX_MODE )
-		{
-			if ( num_cnx )
-				drawCurs( &gterm, (cnxtions[sel_cnx].src_x + cnxtions[sel_cnx].trg_x) / 2,
-						  (cnxtions[sel_cnx].src_y + cnxtions[sel_cnx].trg_y) / 2);
+			simDv( devices );
+			prntDev( &gterm, devices );
 		}
 		
+		/* if number of Cnxtions > 0, update Cnxtion values */
+		if ( num_cnx )
+			updateCn( devices, cnxtions );
+
+		/* if number of Cnxtions > 0, draw Cnxtions */
 		for (k = 0; k < num_cnx; ++k)
 		{
 			gterm.drawLine( &gterm,
@@ -653,15 +683,31 @@ int main()
 					);
 		}
 
-		/* k_in = getch(); */
+		/* draw cursor at Device if in DEV_MODE */
+		if ( cursmode == DEV_MODE )
+		{
+			if ( num_dev )
+				drawCurs( &gterm, devices[sel_dev].x, devices[sel_dev].y );
+		}
+		/* draw cursor at Cnxtion if in CNX_MODE */
+		else if ( cursmode == CNX_MODE )
+		{
+			if ( num_cnx )
+				drawCurs( &gterm, (cnxtions[sel_cnx].src_x + cnxtions[sel_cnx].trg_x) / 2,
+						  (cnxtions[sel_cnx].src_y + cnxtions[sel_cnx].trg_y) / 2);
+		}
+
+		/* get keypress */
 		k_in = gterm.getch( &gterm );
 		switch ( k_in )
 		{
+			/* if no devices, do nothing at all */
 			if ( num_dev == 0 )
 				break;
+			/* force a simulation render */
 			case 'R':
-				simDv( devices );
 				break;
+			/* jump to Device instead of scrolling */
 			case 'J':
 				gterm.gotoxy( &gterm, 0, 21 );
 				gterm.puts( &gterm, "\033[0J" );
@@ -672,12 +718,14 @@ int main()
 					_scanf( &gterm, 'd', &sel_dev);
 				}
 				break;
+			/* change mode between Device and Cnxtion */
 			case 'M':
 				if ( cursmode == DEV_MODE )
 					cursmode = CNX_MODE;
 				else if ( cursmode == CNX_MODE )
 					cursmode = DEV_MODE;
 				break;
+			/* move Devices around the screen s well as moving them alot */
 			case 'd':
 				devices[sel_dev].x += 10;
 				break;
@@ -702,12 +750,14 @@ int main()
 			case 'S':
 				devices[sel_dev].y += 50;
 				break;
+			/* change Device's scale */
 			case '+':
 				devices[sel_dev].scale += 0.2;
 				break;
 			case '-':
 				devices[sel_dev].scale -= 0.2;
 				break;
+			/* scroll through selected Devices or Cnxtions */
 			case '>':
 				if ( cursmode == DEV_MODE )
 					sel_dev = (sel_dev + 1) >= num_dev ? 0 : sel_dev + 1;
@@ -720,10 +770,11 @@ int main()
 				else if ( cursmode == CNX_MODE )
 					sel_cnx = (sel_cnx - 1) < 0 ? num_cnx - 1 : sel_cnx - 1;
 				break;
+			/* edit selected Device */
 			case 'e':
-				/* will eventually port this to geoftrm */
 				editDv( &gterm, &devices[sel_dev] );
 				break;
+			/* insert Device or Cnxtion depending on cursmode */
 			case 'i':
 				if ( cursmode == DEV_MODE )
 				{
@@ -754,6 +805,7 @@ int main()
 					connDv( &gterm, devices, cnxtions );
 					break;
 				}
+			/* delete Device or Cnxtion depending on cursmode */
 			case 'x':
 				if ( cursmode == DEV_MODE )
 				{
