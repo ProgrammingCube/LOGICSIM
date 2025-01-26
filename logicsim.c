@@ -32,10 +32,10 @@ please link against my cpm and geofftrm libraries
 /* Aztec C seems to need functions from any library other than c.lib to be extern'd */
 extern double atof();
 
-int num_dev;		/* number of devices */
-int num_cnx;		/* number of connections */
-int sel_dev;		/* selected device */
-int sel_cnx;		/* selected connection */
+unsigned char num_dev;		/* number of devices */
+unsigned char num_cnx;		/* number of connections */
+unsigned char sel_dev;		/* selected device */
+unsigned char sel_cnx;		/* selected connection */
 char cursmode;		/* selection/cursor mode */
 
 /* shape contains a 1D array describing the shape
@@ -46,11 +46,11 @@ char cursmode;		/* selection/cursor mode */
    x and y coordinates.
 */
 
-static int sig_dat[] = { 1,
+static char sig_dat[] = { 1,
 			0, 0, 20, 0
 			};
 	
-static int and_dat[] = { 9,
+static char and_dat[] = { 9,
 			0, 5, 5, 5,
 			0, 30, 5, 30,
 			40, 17, 45, 17,
@@ -61,7 +61,7 @@ static int and_dat[] = { 9,
 			30, 35, 5, 35,
 			5, 35, 5, 0
 			};
-static int nand_dat[] = { 13,
+static char nand_dat[] = { 13,
 			0, 5, 5, 5,
 			0, 30, 5, 30,
 			46, 17, 51, 17,
@@ -77,7 +77,7 @@ static int nand_dat[] = { 13,
 			5, 35, 5, 0
 			};
 
-static int nor_dat[] = {15,
+static char nor_dat[] = {15,
 			0, 5, 9, 5,
 			0, 30, 9, 30,
 			46, 17, 51, 17,
@@ -95,7 +95,7 @@ static int nor_dat[] = {15,
 			15, 10, 5, 0
 			};
 
-static int or_dat[] = { 11,
+static char or_dat[] = { 11,
 			0, 5, 9, 5,
 			0, 30, 9, 30,
 			40, 17, 45, 17,
@@ -109,7 +109,7 @@ static int or_dat[] = { 11,
 			15, 10, 5, 0
 			};
 
-static int xor_dat[] = { 14,
+static char xor_dat[] = { 14,
 			0, 5, 9, 5,
 			0, 30, 9, 30,
 			40, 17, 45, 17,
@@ -126,7 +126,7 @@ static int xor_dat[] = { 14,
 			15, 10, 5, 0
 			};
 
-static int not_dat[] = { 10,
+static char not_dat[] = { 10,
 			0, 17, 9, 17,
 			9, 0, 9, 0,
 			46, 17, 51, 17,
@@ -142,7 +142,7 @@ static int not_dat[] = { 10,
 /* shape pointer table
 use this later for setting shape based on type
 */
-int* shapeTbl[] = {
+char* shapeTbl[] = {
 			NULL,		/* wire_dat */
 			NULL,		/* xnor_dat */
 			xor_dat,
@@ -163,11 +163,11 @@ typedef struct sDevice
 {
 	char type;			/* type of Device */
 	int x, y;			/* coordinates to draw */
-	int* shape;			/* pointer to which Device to draw */
+	char* shape;			/* pointer to which Device to draw */
 	double value;			/* Voltage value of Device */
 	float scale;			/* Scale to draw locally */
-	int in_dev[2];			/* Two inputs. Designate which devices are wired up */
-	char output;			/* Designates which output device is hooked up */
+	unsigned char in_dev[2];	/* Two inputs. Designate which devices are wired up */
+	unsigned char output;		/* Designates which output device is hooked up */
 } Device;
 
 /* Cnxtion struct
@@ -177,9 +177,9 @@ typedef struct sCnxtion
 {
 	int src_x, src_y;		/* source Device's xy coords */
 	int trg_x, trg_y;		/* target Device's xy coords */
-	int src_dev;			/* source Device index */
-	int trg_dev;			/* target Device index */
-	char input;			/* input Device index */
+	unsigned int src_dev;		/* source Device index */
+	unsigned int trg_dev;		/* target Device index */
+	unsigned char input;		/* input Device index */
 	char value;			/* Voltage value of Cnxtion */
 } Cnxtion;
 
@@ -558,7 +558,6 @@ Device* devices;
 
 /* Simulate Devices
 simulates Device's voltages using input nodes voltages and boolean operations
- turn this into a jump table
 */
 void simDv( devices )
 Device* devices;
