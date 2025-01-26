@@ -213,10 +213,13 @@ void* a;
 		*(double*)a = atof(buf);
 }
 
-/* clear bottom of screen
-gterm.gotoxy( &gterm, 0, 21 );
-gterm.puts( &gterm, "\033[0J" );
-*/
+/* clear bottom of screen */
+void clrLwrSn( term )
+Geoff* term;
+{
+	term->gotoxy( term, 0, 21 );
+	term->puts( term, "\033[0J" );
+}
 
 /* Draw cursor
 cursor will be 10 pixels tall and wide
@@ -272,8 +275,7 @@ Device* device;
 	/* choose device type */
 	do
 	{
-		term->gotoxy( term, 0, 21 );
-		term->puts( term, "\033[0J" );
+		clrLwrSn( term );
 		term->puts( term, "Type: [A]nd  [O]r  [S]ignal  [X]or  No[R]\r\n[N]ot  Nan[D]  [W]ire  [>]Next  [Q]uit");
 		input = term->getch( term );
 		input |= 32;				/* turn to lowercase */
@@ -332,8 +334,7 @@ Device* device;
 	if ( input == 'q' )
 		return;
 	/* choose value */
-	term->gotoxy( term, 0, 21 );
-	term->puts( term, "\033[0J" );
+	clrLwrSn( term );
 	term->puts( term, "Enter a value: " );
 	_scanf( term, 'f', &device->value);
 }
@@ -431,24 +432,21 @@ Cnxtion* cnx;
 	num_cnx--;				/* decrement counter from realloc */
 	
 	/* simple menu to select source, target, and port to connect to */
-	term->gotoxy( term, 0, 21 );
-	term->puts( term, "\033[0J" );
+	clrLwrSn( term );
 	term->puts( term, "Connect Devices\r\nSelect Source Device (0-" );
 	memset( loc_buf, 0, sizeof(loc_buf) );
 	sprintf( loc_buf, "%d", num_dev - 1 );
 	term->puts( term, loc_buf );
 	term->puts( term, "): \r\n" );
 	_scanf( term, 'd', &src_dev);
-	term->gotoxy( term, 0, 21 );
-	term->puts( term, "\033[0J" );
+	clrLwrSn( term );
 	term->puts( term, "Select Target Device (0-" );
 	memset( loc_buf, 0, sizeof(loc_buf) );
 	sprintf( loc_buf, "%d", num_dev - 1 );
 	term->puts( term, loc_buf );
 	term->puts( term, "): \r\n" );
 	_scanf( term, 'd', &trg_dev);
-	term->gotoxy( term, 0, 21 );
-	term->puts( term, "\033[0J" );
+	clrLwrSn( term );
 	term->puts( term, "Select Target Device Input [1] or [2]:" );
 	_scanf( term, 'd', &inpt);
 
@@ -487,40 +485,14 @@ Cnxtion* cnx;
 
 /* Render Device String
 prints parameter 'i's Device type to terminal
-restructure to 1D lookup table
 */
 void rndrDvS( term, devices, i )
 Geoff* term;
 Device* devices;
 int i;
 {
-	switch ( devices[i].type )
-	{
-		case SIGNAL:
-			term->puts( term, "SIGNAL" );
-			break;
-		case AND_GATE:
-			term->puts( term, "AND GATE" );
-			break;
-		case OR_GATE:
-			term->puts( term, "OR GATE" );
-			break;
-		case XOR_GATE:
-			term->puts( term, "XOR GATE" );
-			break;
-		case NND_GATE:
-			term->puts( term, "NAND GATE" );
-			break;
-		case NOR_GATE:
-			term->puts( term, "NOR GATE" );
-			break;
-		case NOT_GATE:
-			term->puts( term, "NOT GATE" );
-			break;
-		default:
-			term->puts( term, "UNKNOWN" );
-			break;
-	}
+	char *txtstr = "WIRE\0\0\0\0\0\0XNOR GATE\0XOR GATE\0\0NOT GATE\0\0NOR GATE\0\0OR GATE\0\0\0NAND GATE\0AND GATE\0\0SIGNAL\0\0\0\0";
+	term->puts( term, txtstr + ( devices[i].type * 10 ) );
 }
 
 /* Print Devices
@@ -634,7 +606,7 @@ int main()
 	char k_in;
 
 	/* definitions */
-	initTerm( &gterm, 16 );
+	initTerm( &gterm, 18 );
 	cursmode = DEV_MODE;
 	num_dev = 1;
 	sel_dev = 0;
@@ -709,8 +681,7 @@ int main()
 				break;
 			/* jump to Device instead of scrolling */
 			case 'J':
-				gterm.gotoxy( &gterm, 0, 21 );
-				gterm.puts( &gterm, "\033[0J" );
+				clrLwrSn( &gterm );
 				gterm.puts( &gterm, "Jump to device: " );
 				sel_dev = -1;
 				while ( sel_dev < 0 && sel_dev < num_dev )
