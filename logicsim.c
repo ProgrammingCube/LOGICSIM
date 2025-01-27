@@ -39,104 +39,59 @@ unsigned char sel_cnx;		/* selected connection */
 char cursmode;		/* selection/cursor mode */
 
 /* shape contains a 1D array describing the shape
-   First element is number of line segments
+   First element is number of continuous lines
    Next three lines are the input and output lines ( 2 input and 1 output )
-   Successive lines make up the rest of the shape
-   Each Device is drawn locally to the provided
-   x and y coordinates.
+   Successive lines make up the continuous lines to draw
+   First element of these lines show the number of points on that line
 */
 
-static char sig_dat[] = { 1,
-			0, 0, 20, 0
+static char sig_dat[] = { 1,			/* length */
+			2, 0, 0, 20, 0		/* line 1 */
 			};
 	
-static char and_dat[] = { 9,
-			0, 5, 5, 5,
-			0, 30, 5, 30,
-			40, 17, 45, 17,
-			5, 0, 30, 0,
-			30, 0, 40, 10,
-			40, 10, 40, 25,
-			40, 25, 30, 35,
-			30, 35, 5, 35,
-			5, 35, 5, 0
+static char and_dat[] = { 4,			/* length */
+			2, 0, 5, 5, 5,		/* input 1 */
+			2, 0, 30, 5, 30,	/* input 2 */
+			2, 40, 17, 45, 17,	/* output */
+			7, 5, 0, 30, 0, 40, 10, 40, 25, 30, 35, 5, 35, 5, 0	/* outline */
 			};
-static char nand_dat[] = { 13,
-			0, 5, 5, 5,
-			0, 30, 5, 30,
-			46, 17, 51, 17,
-			5, 0, 30, 0,
-			30, 0, 40, 10,
-			40, 10, 40, 25,
-			40, 17, 43, 15,
-			43, 15, 46, 17,
-			46, 17, 43, 19,
-			43, 19, 40, 17,
-			40, 25, 30, 35,
-			30, 35, 5, 35,
-			5, 35, 5, 0
+static char nand_dat[] = { 5,			/* length */
+			2, 0, 5, 5, 5,		/* input 1 */
+			2, 0, 30, 5, 30,	/* input 2 */
+			2, 46, 17, 51, 17,	/* output */
+			7, 5, 0, 30, 0, 40, 10, 40, 25, 30, 35, 5, 35, 5, 0,	/* outline */
+			5, 40, 17, 43, 15, 46, 17, 43, 19, 40, 17		/* negate circle */
 			};
 
-static char nor_dat[] = {15,
-			0, 5, 9, 5,
-			0, 30, 9, 30,
-			46, 17, 51, 17,
-			5, 0, 30, 0,
-			30, 0, 40, 10,
-			40, 10, 40, 25,
-			40, 17, 43, 15,
-			43, 15, 46, 17,
-			46, 17, 43, 19,
-			43, 19, 40, 17,
-			40, 25, 30, 35,
-			30, 35, 5, 35,
-			5, 35, 15, 25,
-			15, 25, 15, 10,
-			15, 10, 5, 0
+static char nor_dat[] = { 5,			/* length */
+			2, 0, 5, 9, 5,		/* input 1 */
+			2, 0, 30, 9, 30,	/* input 2 */
+			2, 46, 17, 51, 17,	/* output */
+			9, 5, 0, 30, 0, 40, 10, 40, 25, 30, 35, 5, 35, 15, 25, 15, 10, 5, 0,	/* outline */
+			5, 40, 17, 43, 15, 46, 17, 43, 19, 40, 17				/* negate circle */
 			};
 
-static char or_dat[] = { 11,
-			0, 5, 9, 5,
-			0, 30, 9, 30,
-			40, 17, 45, 17,
-			5, 0, 30, 0,
-			30, 0, 40, 10,
-			40, 10, 40, 25,
-			40, 25, 30, 35,
-			30, 35, 5, 35,
-			5, 35, 15, 25,
-			15, 25, 15, 10,
-			15, 10, 5, 0
+static char or_dat[] = { 4,			/* length */
+			2, 0, 5, 9, 5,		/* input 1 */
+			2, 0, 30, 9, 30,	/* input 2 */
+			2, 40, 17, 45, 17,	/* output */
+			9, 5, 0, 30, 0, 40, 10, 40, 25, 30, 35, 5, 35, 15, 25, 15, 10, 5, 0	/* shape outline */
 			};
 
-static char xor_dat[] = { 14,
-			0, 5, 9, 5,
-			0, 30, 9, 30,
-			40, 17, 45, 17,
-			8, 0, 30, 0,
-			30, 0, 40, 10,
-			40, 10, 40, 25,
-			40, 25, 30, 35,
-			30, 35, 8, 35,
-			8, 35, 18, 25,
-			18, 25, 18, 10,
-			18, 10, 8, 0,
-			5, 35, 15, 25,
-			15, 25, 15, 10,
-			15, 10, 5, 0
+static char xor_dat[] = { 5,			/* length */
+			2, 0, 5, 9, 5,		/* input 1 */
+			2, 0, 30, 9, 30,	/* input 2 */
+			2, 40, 17, 45, 17,	/* output */
+			9, 8, 0, 30, 0, 40, 10, 40, 25, 30, 35, 8, 35, 18, 25, 18, 10, 8, 0,	/* shape outline */
+			4, 5, 35, 15, 25, 15, 10, 5, 0						/* xor bow */
 			};
 
-static char not_dat[] = { 10,
-			0, 17, 9, 17,
-			9, 0, 9, 0,
-			46, 17, 51, 17,
-			40, 17, 43, 15,
-			43, 15, 46, 17,
-			46, 17, 43, 19,
-			43, 19, 40, 17,
-			9, 0, 40, 17,
-			40, 17, 9, 35,
-			9, 35, 9, 0
+static char not_dat[] = { 5,			/* length */
+			2, 0, 17, 9, 17,	/* input 1 */
+			2, 9, 0, 9, 0,		/* hidden input 2 */
+			2, 46, 17, 51, 17,	/* output */
+			4, 9, 0, 40, 17, 9, 35, 9, 0,			/* shape outline */
+			5, 40, 17, 43, 15, 46, 17, 43, 19, 40, 17	/* negate circle */
 			};
 
 /* shape pointer table
@@ -249,30 +204,36 @@ int x, y;
 }
 
 /* Currently only draws in line segments
-   Need to rethink the structure and drawing algo to
-   efficiently draw with rectangles and circles, fill or no fill
+   How to
 */
 void drawDv( term, device)
 Geoff* term;
 Device* device;
 {
-	int i;
-	int numseg;
-	numseg = device->shape[0] * 4;
-	for ( i = 1; i < numseg; i+=4 )
+	unsigned char i, j;
+	int x1, y1, x2, y2;
+
+	unsigned char vcounter;						/* vertex counter */
+	unsigned char ecounter = 1;					/* element counter */
+	unsigned char num_lins = device->shape[ 0 ];
+
+	/* for each line block */
+	for ( i = 0; i < num_lins; ++i )
 	{
-		float x, y, u, v;
-		/* multiplied against scale to scale Device */
-		x = device->x + (device->shape[i]   * device->scale);
-		y = device->y + (device->shape[i+1] * device->scale);
-		u = device->x + (device->shape[i+2] * device->scale);
-		v = device->y + (device->shape[i+3] * device->scale);
-		term->drawLine( term,
-				(int)x,
-				(int)y,
-				(int)u,
-				(int)v
-				);
+		/* grab loop to count */
+		vcounter = device->shape[ ecounter ];
+		ecounter++;
+		/* for loop */
+		for ( j = 0; j < vcounter - 1; j++ )
+		{
+			x1 = device->x + device->shape[ ecounter ];
+			y1 = device->y + device->shape[ ecounter + 1 ];
+			x2 = device->x + device->shape[ ecounter + 2 ];
+			y2 = device->y + device->shape[ ecounter + 3 ];
+			ecounter += 2;
+			term->drawLine( term, x1, y1, x2, y2 );
+		}
+		ecounter += 2;
 	}
 }
 
@@ -381,7 +342,7 @@ int t, x, y;
 */
 void clSrcCrd( device, src_dev, src_x, src_y )
 Device* device;
-int src_dev;
+unsigned char src_dev;
 int* src_x, src_y;
 {
 	/* if Device is a SIGNAL */
@@ -402,8 +363,8 @@ int* src_x, src_y;
 */
 void clTrgCrd( device, trg_dev, input, trg_x, trg_y )
 Device* device;
-int trg_dev;
-char input;
+unsigned char trg_dev;
+unsigned char input;
 int* trg_x, trg_y;
 {
 	if (input == 1)
