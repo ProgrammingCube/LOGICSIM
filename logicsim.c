@@ -18,6 +18,9 @@ please link against my cpm and geofftrm libraries
 #define	DEV_MODE	1
 #define	CNX_MODE	2
 
+/* disconnected Cnxtion */
+#define	DISCNNCT	-1
+
 /* K&R C did not have enums. What a biiiitch... */
 #define	WIRE		0
 #define	XNR_GATE	1
@@ -28,9 +31,6 @@ please link against my cpm and geofftrm libraries
 #define	NND_GATE	6
 #define	AND_GATE	7
 #define	SIGNAL		8
-
-/* Aztec C seems to need functions from any library other than c.lib to be extern'd */
-extern double atof();
 
 unsigned char num_dev;		/* number of devices */
 unsigned char num_cnx;		/* number of connections */
@@ -119,8 +119,8 @@ typedef struct sDevice
 	char type;			/* type of Device */
 	int x, y;			/* coordinates to draw */
 	char* shape;			/* pointer to which Device to draw */
-	double value;			/* Voltage value of Device */
-	float scale;			/* Scale to draw locally */
+	char value;			/* Voltage value of Device */
+	/*float scale;*/			/* Scale to draw locally */
 	unsigned char in_dev[2];	/* Two inputs. Designate which devices are wired up */
 	unsigned char output;		/* Designates which output device is hooked up */
 } Device;
@@ -130,12 +130,9 @@ A Cnxtion is a connection between two Devices
 */
 typedef struct sCnxtion
 {
-	int src_x, src_y;		/* source Device's xy coords */
-	int trg_x, trg_y;		/* target Device's xy coords */
-	unsigned int src_dev;		/* source Device index */
-	unsigned int trg_dev;		/* target Device index */
+	unsigned char src_dev;		/* source Device index */
+	unsigned char trg_dev;		/* target Device index */
 	unsigned char input;		/* input Device index */
-	char value;			/* Voltage value of Cnxtion */
 } Cnxtion;
 
 /* scanf
@@ -156,7 +153,6 @@ void* a;
 
 	while (i < SCANBUF)
 	{
-		/* term->putchar( term, buf[i++] = c ); */
 		c = term->getch( term );
 		/* handle ^M or ENTER */
 		if (c == '\r' || c == '\n')
@@ -180,8 +176,10 @@ void* a;
 	/* format check */
 	if ( f == 'd' )
 		*(int*)a = atoi(buf);
+	/*
 	else if ( f == 'f' )
 		*(double*)a = atof(buf);
+	*/
 }
 
 /* clear bottom of screen */
@@ -249,6 +247,8 @@ Device* device;
 	float tmp_val;
 	input = 0;
 	
+	/* change to 'abcdefg...' and index of ascii value to create lookup table */
+	
 	/* choose device type */
 	do
 	{
@@ -312,8 +312,8 @@ Device* device;
 		return;
 	/* choose value */
 	clrLwrSn( term );
-	term->puts( term, "Enter a value: " );
-	_scanf( term, 'f', &device->value);
+	term->puts( term, "Enter a value [0] or [1]: " );
+	_scanf( term, 'd', &device->value);
 }
 
 /* Set up Device
@@ -328,78 +328,14 @@ Device* device;
 int t, x, y;
 {
 	device->type = t;
-	device->value = 0.0;
-	device->in_dev[0] = -1;
-	device->in_dev[1] = -1;
-	device->output	= -1;
+	device->value = 0;
+	device->in_dev[0] = DISCNNCT;
+	device->in_dev[1] = DISCNNCT;
+	device->output	= DISCNNCT;
 	device->x = x;
 	device->y = y;
-	device->scale = 1.0;
+	/*device->scale = 1.0;*/
 	device->shape = shapeTbl[t];
-}
-
-/* Calculate source coordinates
-*/
-void clSrcCrd( device, src_dev, src_x, src_y )
-Device* device;
-unsigned char src_dev;
-int* src_x, src_y;
-{
-	/* if Device is a SIGNAL */
-	if (device[src_dev].shape[0] == 1)
-	{
-		*src_y = device[src_dev].y + 0;
-		*src_x = device[src_dev].x + 20;
-	}
-	/* else draw as a Device */
-	else
-	{
-		*src_x = device[src_dev].x + device[src_dev].shape[11];
-		*src_y = device[src_dev].y + device[src_dev].shape[12];
-	}
-}
-
-/* Calculate target coordinates
-*/
-void clTrgCrd( device, trg_dev, input, trg_x, trg_y )
-Device* device;
-unsigned char trg_dev;
-unsigned char input;
-int* trg_x, trg_y;
-{
-	if (input == 1)
-	{
-		*trg_x = device[trg_dev].x + device[trg_dev].shape[1];
-		*trg_y = device[trg_dev].y + device[trg_dev].shape[2];
-	}
-	else
-	{
-		*trg_x = device[trg_dev].x + device[trg_dev].shape[5];
-		*trg_y = device[trg_dev].y + device[trg_dev].shape[6];
-	}
-}
-
-
-/* Update Cnxtion structure
-used to update the Cnxtion structure's coordinates after moves and such
-*/
-void updateCn( devices, cnx)
-Device* devices;
-Cnxtion* cnx;
-{
-	int i;
-	int src_dev;
-	int trg_dev;
-	char input;
-	for (i = 0; i < num_cnx; i++)
-	{
-		src_dev = cnx[i].src_dev;
-		trg_dev = cnx[i].trg_dev;
-		input = cnx[i].input;
-
-		clSrcCrd( devices, src_dev, &cnx[i].src_x, &cnx[i].src_y );
-		clTrgCrd( devices, trg_dev, input, &cnx[i].trg_x, &cnx[i].trg_y );
-        }
 }
 
 /* Connect Devices
@@ -412,7 +348,6 @@ Cnxtion* cnx;
 {
 	char loc_buf[8];
 	int src_dev, trg_dev, inpt;
-	int src_x, src_y, trg_x, trg_y;
 	num_cnx--;				/* decrement counter from realloc */
 	
 	/* simple menu to select source, target, and port to connect to */
@@ -433,14 +368,7 @@ Cnxtion* cnx;
 	clrLwrSn( term );
 	term->puts( term, "Select Target Device Input [1] or [2]:" );
 	_scanf( term, 'd', &inpt);
-	
-	clSrcCrd( dev, src_dev, &src_x, &src_y );
-	clTrgCrd( dev, trg_dev, inpt, &trg_x, &trg_y );
 
-	cnx[num_cnx].src_x = src_x;
-	cnx[num_cnx].src_y = src_y;
-	cnx[num_cnx].trg_x = trg_x;
-	cnx[num_cnx].trg_y = trg_y;
 	cnx[num_cnx].input = inpt;
 	dev[trg_dev].in_dev[inpt - 1] = src_dev;
 	cnx[num_cnx].src_dev = src_dev;
@@ -488,8 +416,10 @@ Device* devices;
 	sprintf( loc_buf, "%d", devices[sel_dev].y );
 	term->puts(term, loc_buf);
 	term->puts(term, "\tValue: ");
-	sprintf( loc_buf, "%.02lf", devices[sel_dev].value );
-	term->puts(term, loc_buf);
+	if ( devices[ sel_dev ].value )
+		term->puts(term, "HIGH");
+	else
+		term->puts(term, "LOW");
 	term->putchar( term, '\t' );
 	if ( cursmode == DEV_MODE )
 		term->putchar( term, 'D' );
@@ -523,7 +453,7 @@ simulates Device's voltages using input nodes voltages and boolean operations
 void simDv( devices )
 Device* devices;
 {
-	double inp1, inp2;
+	char inp1, inp2;
 	unsigned char i, j;
 	for ( j = 0; j < num_cnx; ++j )
 	{
@@ -536,25 +466,25 @@ Device* devices;
 				case WIRE:
 					break;
 				case XNR_GATE:
-					devices[i].value = (inp1 > 0.5 ^ inp2 > 0.5 ) ? 0.0 : 5.0;
+					devices[i].value = (inp1 > 0 ^ inp2 > 0 ) ? 0 : 1;
 					break;
 				case XOR_GATE:
-					devices[i].value = (inp1 > 0.5 ^ inp2 > 0.5 ) ? 5.0 : 0.0;
+					devices[i].value = (inp1 > 0 ^ inp2 > 0 ) ? 1 : 0;
 					break;
 				case NOT_GATE:
-					devices[i].value = (inp1 > 0.5) ? 0.0 : 5.0;
+					devices[i].value = (inp1 > 0) ? 0 : 1;
 					break;
 				case NOR_GATE:
-					devices[i].value = (inp1 > 0.5 || inp2 > 0.5 ) ? 0.0 : 5.0;
+					devices[i].value = (inp1 > 0 || inp2 > 0 ) ? 0 : 1;
 					break;
 				case OR_GATE:
-					devices[i].value = (inp1 > 0.5 || inp2 > 0.5 ) ? 5.0 : 0.0;
+					devices[i].value = (inp1 > 0 || inp2 > 0 ) ? 1 : 0;
 					break;
 				case NND_GATE:
-					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 0.0 : 5.0;
+					devices[i].value = (inp1 > 0 && inp2 > 0 ) ? 0 : 1;
 					break;
 				case AND_GATE:
-					devices[i].value = (inp1 > 0.5 && inp2 > 0.5 ) ? 5.0 : 0.0;
+					devices[i].value = (inp1 > 0 && inp2 > 0 ) ? 1 : 0;
 					break;
 				case SIGNAL:
 					break;
@@ -613,17 +543,52 @@ int main()
 			simDv( devices );
 			prntDev( &gterm, devices );
 		}
-		
-		/* if number of Cnxtions > 0, update Cnxtion values */
-		if ( num_cnx )
-			updateCn( devices, cnxtions );
 
 		/* if number of Cnxtions > 0, draw Cnxtions */
 		for (k = 0; k < num_cnx; ++k)
 		{
+			int x1, y1, x2, y2;
+			char x1_off, y1_off, x2_off, y2_off;
+			unsigned char devsptr =  cnxtions[ k ].src_dev;
+			unsigned char devtptr =  cnxtions[ k ].trg_dev;
+
+			/* check if SIGNAL, if so, use 5 and 6 */
+			if ( devices[ devsptr ].type == SIGNAL )
+			{
+				x1_off = 4;
+				y1_off = 5;
+			}
+			/* else, draw from Device output line */
+			else
+			{
+				x1_off = 14;
+				y1_off = 15;
+				
+				
+			}
+			
+			/* calculate endpoint based on input of target */
+			if ( cnxtions[ k ].input == 1 )
+			{
+				x2_off = 2;
+				y2_off = 3;
+			}
+			else
+			{
+				x2_off = 7;
+				y2_off = 8;
+			}
+			
+			x1 = devices[ devsptr ].x + devices[ devsptr ].shape[ x1_off ];
+			y1 = devices[ devsptr ].y + devices[ devsptr ].shape[ y1_off ];
+			x2 = devices[ devtptr ].x + devices[ devtptr ].shape[ x2_off ];
+			y2 = devices[ devtptr ].y + devices[ devtptr ].shape[ y2_off ];
+			
 			gterm.drawLine( &gterm,
-					cnxtions[k].src_x, cnxtions[k].src_y,
-					cnxtions[k].trg_x, cnxtions[k].trg_y
+					x1,
+					y1,
+					x2,	
+					y2	
 					);
 		}
 
@@ -636,9 +601,11 @@ int main()
 		/* draw cursor at Cnxtion if in CNX_MODE */
 		else if ( cursmode == CNX_MODE )
 		{
+			/*
 			if ( num_cnx )
 				drawCurs( &gterm, (cnxtions[sel_cnx].src_x + cnxtions[sel_cnx].trg_x) / 2,
 						  (cnxtions[sel_cnx].src_y + cnxtions[sel_cnx].trg_y) / 2);
+			*/
 		}
 
 		/* get keypress */
@@ -694,12 +661,14 @@ int main()
 				devices[sel_dev].y += 50;
 				break;
 			/* change Device's scale */
+			/*
 			case '+':
 				devices[sel_dev].scale += 0.2;
 				break;
 			case '-':
 				devices[sel_dev].scale -= 0.2;
 				break;
+			*/
 			/* scroll through selected Devices or Cnxtions */
 			case '>':
 				if ( cursmode == DEV_MODE )
