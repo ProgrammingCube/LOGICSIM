@@ -94,12 +94,21 @@ static char not_dat[] = { 5,			/* length */
 			5, 40, 17, 43, 15, 46, 17, 43, 19, 40, 17	/* negate circle */
 			};
 
+static char xnr_dat[] = { 6,			/* length */
+			2, 0, 5, 9, 5,		/* input 1 */
+			2, 0, 30, 9, 30,	/* input 2 */
+			2, 40, 17, 45, 17,	/* output */
+			9, 8, 0, 30, 0, 40, 10, 40, 25, 30, 35, 8, 35, 18, 25, 18, 10, 8, 0,	/* shape outline */
+			4, 5, 35, 15, 25, 15, 10, 5, 0,						/* xor bow */
+			5, 40, 17, 43, 15, 46, 17, 43, 19, 40, 17				/* negate circle */
+			};
+
 /* shape pointer table
 use this later for setting shape based on type
 */
 char* shapeTbl[] = {
 			NULL,		/* wire_dat */
-			NULL,		/* xnor_dat */
+			xnr_dat,	/* xnor_dat */
 			xor_dat,
 			not_dat,
 			nor_dat,
@@ -134,6 +143,78 @@ typedef struct sCnxtion
 	unsigned char trg_dev;		/* target Device index */
 	unsigned char input;		/* input Device index */
 } Cnxtion;
+
+/* function table for editDevice */
+typedef void (*edDevptr)();
+
+void _andStup( device )
+Device* device;
+{
+	device->type=AND_GATE;
+	device->shape=and_dat;
+}
+
+void _orStup( device )
+Device* device;
+{
+	device->type=OR_GATE;
+	device->shape=or_dat;
+}
+
+void _sigStup( device )
+Device* device;
+{
+	device->type=SIGNAL;
+	device->shape=sig_dat;
+}
+
+void _xorStup( device )
+Device* device;
+{
+	device->type=XOR_GATE;
+	device->shape=xor_dat;
+}
+
+void _nndStup( device )
+Device* device;
+{
+	device->type=NND_GATE;
+	device->shape=nand_dat;
+}
+
+void _norStup( device )
+Device* device;
+{
+	device->type=NOR_GATE;
+	device->shape=nor_dat;
+}
+
+void _notStup( device )
+Device* device;
+{
+	device->type=NOT_GATE;
+	device->shape=not_dat;
+}
+
+void _xnrStup( device )
+Device* device;
+{
+	device->shape=xnr_dat;
+	device->type=XNR_GATE;
+}
+
+edDevptr edDvTbl[] =
+{
+	_andStup,
+	_orStup,
+	_sigStup,
+	_xorStup,
+	_nndStup,
+	_norStup,
+	_notStup,
+	_xnrStup,
+	NULL 
+};
 
 /* scanf
 hand-rolled scanf allows programmer to designate which Terminal object to use
@@ -245,71 +326,39 @@ Device* device;
 {
 	char input;
 	float tmp_val;
+	char i;
+	char *inArray = "aosxrndz";
 	input = 0;
 	
-	/* change to 'abcdefg...' and index of ascii value to create lookup table */
-	
 	/* choose device type */
-	do
-	{
-		clrLwrSn( term );
-		term->puts( term, "Type: [A]nd  [O]r  [S]ignal  [X]or  No[R]\r\n[N]ot  Nan[D]  [W]ire  [>]Next  [Q]uit");
-		input = term->getch( term );
-		input |= 32;				/* turn to lowercase */
-		if (input=='a')
-		{
-			device->type=AND_GATE;
-			device->shape=and_dat;
-			break;
-		}
-		else if (input=='o')
-		{
-			device->type=OR_GATE;
-			device->shape=or_dat;
-			break;
-		}
-		else if (input=='s')
-		{
-			device->type=SIGNAL;
-			device->shape=sig_dat;
-			break;
-		}
-		else if (input=='x')
-		{
-			device->type=XOR_GATE;
-			device->shape=xor_dat;
-			break;
-		}
-		else if (input=='d')
-		{
-			device->type=NND_GATE;
-			device->shape=nand_dat;
-			break;
-		}
-		else if (input=='r')
-		{
-			device->type=NOR_GATE;
-			device->shape=nor_dat;
-			break;
-		}
-		else if (input=='n')
-		{
-			device->type=NOT_GATE;
-			device->shape=not_dat;
-			break;
-		}
-		else if (input=='>')
-		{
-			break;
-		}
-		else if (input=='w')
-			break;
-		else
-			continue;
-	}
-	while (input != 'q');
+	clrLwrSn( term );
+	term->puts( term, "Type: [A]nd  [O]r  [S]ignal  [X]or  No[R]\r\n[N]ot  Nan[D]  [W]ire  [Z]Xnor  [>]Next  [Q]uit");
+	/* grab input */
+	input = term->getch( term );
+	input |= 32;				/* turn to lowercase */
+
+	/* check if quit or continue */
 	if ( input == 'q' )
 		return;
+	
+	if ( input == '>' )
+	{
+		goto edDvLblc;
+	}
+
+	/* iterate/compare through list */
+	for ( i = 0; i < 9; ++i )
+	{
+		if ( input == inArray[ i ] )
+			break;
+	}
+	/* jump to function in array on index */
+	if ( ! ( i == 8 ) )
+		edDvTbl[i]( device );
+	else
+		return;
+
+edDvLblc:
 	/* choose value */
 	clrLwrSn( term );
 	term->puts( term, "Enter a value [0] or [1]: " );
@@ -530,6 +579,7 @@ int main()
 	do
 	{
 		int k;
+		int cdx1, cdy1, cdx2, cdy2;
 		gterm.clear( &gterm );
 		
 		/* if number of Devices > 0, draw Devices */
@@ -547,7 +597,6 @@ int main()
 		/* if number of Cnxtions > 0, draw Cnxtions */
 		for (k = 0; k < num_cnx; ++k)
 		{
-			int x1, y1, x2, y2;
 			char x1_off, y1_off, x2_off, y2_off;
 			unsigned char devsptr =  cnxtions[ k ].src_dev;
 			unsigned char devtptr =  cnxtions[ k ].trg_dev;
@@ -579,16 +628,16 @@ int main()
 				y2_off = 8;
 			}
 			
-			x1 = devices[ devsptr ].x + devices[ devsptr ].shape[ x1_off ];
-			y1 = devices[ devsptr ].y + devices[ devsptr ].shape[ y1_off ];
-			x2 = devices[ devtptr ].x + devices[ devtptr ].shape[ x2_off ];
-			y2 = devices[ devtptr ].y + devices[ devtptr ].shape[ y2_off ];
+			cdx1 = devices[ devsptr ].x + devices[ devsptr ].shape[ x1_off ];
+			cdy1 = devices[ devsptr ].y + devices[ devsptr ].shape[ y1_off ];
+			cdx2 = devices[ devtptr ].x + devices[ devtptr ].shape[ x2_off ];
+			cdy2 = devices[ devtptr ].y + devices[ devtptr ].shape[ y2_off ];
 			
 			gterm.drawLine( &gterm,
-					x1,
-					y1,
-					x2,	
-					y2	
+					cdx1,
+					cdy1,
+					cdx2,	
+					cdy2	
 					);
 		}
 
