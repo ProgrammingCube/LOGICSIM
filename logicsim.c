@@ -610,8 +610,8 @@ Cnxtion* cnxtions;
 char* com_buf;
 {
 	char* ptr = com_buf;
-	Device* _dev_tmp;
-	Cnxtion* _cnx_tmp;
+	Device* _dev_tmp = NULL;
+	Cnxtion* _cnx_tmp = NULL;
 	while (*ptr != '\0')
 	{
 		int num;
@@ -782,8 +782,8 @@ char* com_buf;
 				break;
 		}
 	}
-	free( _dev_tmp );
-	free( _cnx_tmp );
+	if (_dev_tmp != NULL) free(_dev_tmp);
+	if (_cnx_tmp != NULL) free(_cnx_tmp);
 	return 0;
 }
 
