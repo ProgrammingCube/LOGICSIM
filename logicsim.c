@@ -1,6 +1,6 @@
 /* #include "cpm.h" */
 #include "stdio.h"
-#include "geofftrm.h
+#include "geofftrm.h"
 /* If not using the include sources,
 please link against my cpm and geofftrm libraries 
 */
