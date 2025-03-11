@@ -1,15 +1,17 @@
 /* #include "cpm.h" */
+#include "stdio.h"
 #include "geofftrm.h
 /* If not using the include sources,
 please link against my cpm and geofftrm libraries 
 */
-
 /* maximum number of Cnxtions */
 #define	MAX_CNX	256
 /* maximum number of Devices */
 #define	MAX_DEV	256
 /* size of scanf buffer */
-#define	SCANBUF	15
+#define	SCANBUF	70
+/* IO port base */
+#define TTYBASE	16
 
 /* Aztec C does not include NULL but does do EOF/EOL */
 #define	NULL	0
@@ -32,11 +34,17 @@ please link against my cpm and geofftrm libraries
 #define	AND_GATE	7
 #define	SIGNAL		8
 
+/* Modes */
+#define	VID_MODE	0
+#define	DEV_MODE	1
+#define	CNX_MODE	2
+
 unsigned char num_dev;		/* number of devices */
 unsigned char num_cnx;		/* number of connections */
-unsigned char sel_dev;		/* selected device */
-unsigned char sel_cnx;		/* selected connection */
-char cursmode;		/* selection/cursor mode */
+char sel_dev;		/* selected device */
+char sel_cnx;		/* selected connection */
+
+char PRG_MODE = VID_MODE;
 
 /* shape contains a 1D array describing the shape
    First element is number of continuous lines
@@ -46,6 +54,10 @@ char cursmode;		/* selection/cursor mode */
 */
 
 static char sig_dat[] = { 1,			/* length */
+			2, 0, 0, 20, 0		/* line 1 */
+			};
+
+static char wire_dat[] = { 1,			/* length */
 			2, 0, 0, 20, 0		/* line 1 */
 			};
 	
@@ -107,8 +119,8 @@ static char xnr_dat[] = { 6,			/* length */
 use this later for setting shape based on type
 */
 char* shapeTbl[] = {
-			NULL,		/* wire_dat */
-			xnr_dat,	/* xnor_dat */
+			wire_dat,		/* wire_dat */
+			xnr_dat,
 			xor_dat,
 			not_dat,
 			nor_dat,
@@ -117,6 +129,20 @@ char* shapeTbl[] = {
 			and_dat,
 			sig_dat,
 			NULL		/* null terminator */
+			};
+
+/* device lookup table */
+char devtyplu[]  = {
+			WIRE,
+			XNR_GATE,
+			XOR_GATE,
+			NOT_GATE,
+			NOR_GATE,
+			OR_GATE,
+			NND_GATE,
+			AND_GATE,
+			SIGNAL,
+			NULL
 			};
 
 /* Device struct
@@ -130,7 +156,7 @@ typedef struct sDevice
 	char* shape;			/* pointer to which Device to draw */
 	char value;			/* Voltage value of Device */
 	/*float scale;*/			/* Scale to draw locally */
-	unsigned char in_dev[2];	/* Two inputs. Designate which devices are wired up */
+	unsigned char in_dev[2];	/* Two intputs. Designate which devices are wired up */
 	unsigned char output;		/* Designates which output device is hooked up */
 } Device;
 
@@ -144,77 +170,14 @@ typedef struct sCnxtion
 	unsigned char input;		/* input Device index */
 } Cnxtion;
 
-/* function table for editDevice */
-typedef void (*edDevptr)();
-
-void _andStup( device )
-Device* device;
+/* isdigit
+determines if c is an ascii digit
+*/
+char isdigit(c)
+char c;
 {
-	device->type=AND_GATE;
-	device->shape=and_dat;
+  return (c >= '0' && c <= '9');
 }
-
-void _orStup( device )
-Device* device;
-{
-	device->type=OR_GATE;
-	device->shape=or_dat;
-}
-
-void _sigStup( device )
-Device* device;
-{
-	device->type=SIGNAL;
-	device->shape=sig_dat;
-}
-
-void _xorStup( device )
-Device* device;
-{
-	device->type=XOR_GATE;
-	device->shape=xor_dat;
-}
-
-void _nndStup( device )
-Device* device;
-{
-	device->type=NND_GATE;
-	device->shape=nand_dat;
-}
-
-void _norStup( device )
-Device* device;
-{
-	device->type=NOR_GATE;
-	device->shape=nor_dat;
-}
-
-void _notStup( device )
-Device* device;
-{
-	device->type=NOT_GATE;
-	device->shape=not_dat;
-}
-
-void _xnrStup( device )
-Device* device;
-{
-	device->shape=xnr_dat;
-	device->type=XNR_GATE;
-}
-
-edDevptr edDvTbl[] =
-{
-	_andStup,
-	_orStup,
-	_sigStup,
-	_xorStup,
-	_nndStup,
-	_norStup,
-	_notStup,
-	_xnrStup,
-	NULL 
-};
 
 /* scanf
 hand-rolled scanf allows programmer to designate which Terminal object to use
@@ -244,12 +207,12 @@ void* a;
 		/* handle BACKSPACE */
 		else if (c == 0x08 && i > 0)
 		{
-			term->puts( term, "\010 \010" );
+			term->tputs( term, "\010 \010" );
 			i--; 
 			continue;
 		}
 		/* print char and increment buffer */
-		term->putchar( term, buf[i++] = c );
+		term->tputchar( term, buf[i++] = c );
 	}
 	/* eol */
 	buf[i] = 0;
@@ -257,6 +220,17 @@ void* a;
 	/* format check */
 	if ( f == 'd' )
 		*(int*)a = atoi(buf);
+	else if ( f == 's' )
+	{
+		char j;
+		for ( j = 0; buf[ j ] != '\0'; ++j )
+		{
+			*((char*)a) = buf[ j ];
+			((char*)a)++;
+			
+		}
+		*(char*)a = '\0';
+	}
 	/*
 	else if ( f == 'f' )
 		*(double*)a = atof(buf);
@@ -268,7 +242,7 @@ void clrLwrSn( term )
 Geoff* term;
 {
 	term->gotoxy( term, 0, 21 );
-	term->puts( term, "\033[0J" );
+	term->tputs( term, "\033[0J" );
 }
 
 /* Draw cursor
@@ -316,55 +290,6 @@ Device* device;
 	}
 }
 
-/* Edit Device
-edit the currently selected Device
-the Device is passed in via a pointer to that element in the Device structure
-*/
-void editDv( term, device )
-Geoff* term;
-Device* device;
-{
-	char input;
-	float tmp_val;
-	char i;
-	char *inArray = "aosxrndz";
-	input = 0;
-	
-	/* choose device type */
-	clrLwrSn( term );
-	term->puts( term, "Type: [A]nd  [O]r  [S]ignal  [X]or  No[R]\r\n[N]ot  Nan[D]  [W]ire  [Z]Xnor  [>]Next  [Q]uit");
-	/* grab input */
-	input = term->getch( term );
-	input |= 32;				/* turn to lowercase */
-
-	/* check if quit or continue */
-	if ( input == 'q' )
-		return;
-	
-	if ( input == '>' )
-	{
-		goto edDvLblc;
-	}
-
-	/* iterate/compare through list */
-	for ( i = 0; i < 9; ++i )
-	{
-		if ( input == inArray[ i ] )
-			break;
-	}
-	/* jump to function in array on index */
-	if ( ! ( i == 8 ) )
-		edDvTbl[i]( device );
-	else
-		return;
-
-edDvLblc:
-	/* choose value */
-	clrLwrSn( term );
-	term->puts( term, "Enter a value [0] or [1]: " );
-	_scanf( term, 'd', &device->value);
-}
-
 /* Set up Device
 Takes a pointer to the location in the Devices array and imbues it with
 startup values
@@ -387,45 +312,6 @@ int t, x, y;
 	device->shape = shapeTbl[t];
 }
 
-/* Connect Devices
-selects two Devices and creates a Cnxtion using the freshly realloc'ed array
-*/
-void connDv( term, dev, cnx )
-Geoff* term;
-Device* dev;
-Cnxtion* cnx;
-{
-	char loc_buf[8];
-	int src_dev, trg_dev, inpt;
-	num_cnx--;				/* decrement counter from realloc */
-	
-	/* simple menu to select source, target, and port to connect to */
-	clrLwrSn( term );
-	term->puts( term, "Connect Devices\r\nSelect Source Device (0-" );
-	memset( loc_buf, 0, sizeof(loc_buf) );
-	sprintf( loc_buf, "%d", num_dev - 1 );
-	term->puts( term, loc_buf );
-	term->puts( term, "): \r\n" );
-	_scanf( term, 'd', &src_dev);
-	clrLwrSn( term );
-	term->puts( term, "Select Target Device (0-" );
-	memset( loc_buf, 0, sizeof(loc_buf) );
-	sprintf( loc_buf, "%d", num_dev - 1 );
-	term->puts( term, loc_buf );
-	term->puts( term, "): \r\n" );
-	_scanf( term, 'd', &trg_dev);
-	clrLwrSn( term );
-	term->puts( term, "Select Target Device Input [1] or [2]:" );
-	_scanf( term, 'd', &inpt);
-
-	cnx[num_cnx].input = inpt;
-	dev[trg_dev].in_dev[inpt - 1] = src_dev;
-	cnx[num_cnx].src_dev = src_dev;
-	cnx[num_cnx].trg_dev = trg_dev;
-
-	num_cnx++;				/* reincrement number of cnxtions */
-}
-
 /* Render Device String
 prints parameter 'i's Device type to terminal
 */
@@ -435,7 +321,7 @@ Device* devices;
 int i;
 {
 	char *txtstr = "WIRE\0\0\0\0\0\0XNOR GATE\0XOR GATE\0\0NOT GATE\0\0NOR GATE\0\0OR GATE\0\0\0NAND GATE\0AND GATE\0\0SIGNAL\0\0\0\0";
-	term->puts( term, txtstr + ( devices[i].type * 10 ) );
+	term->tputs( term, txtstr + ( devices[i].type * 10 ) );
 }
 
 /* Print Devices
@@ -451,43 +337,45 @@ Device* devices;
 
 	/* Selected Device - bottom of screen */
 	term->gotoxy( term, 0, 21 );
-	term->puts( term, "Device: ");
+	term->tputs( term, "Device: ");
 	memset( loc_buf, 0, sizeof(loc_buf) );
 	sprintf( loc_buf, "%d", sel_dev );
-	term->puts(term, loc_buf);
-	term->puts( term, "\t" );
+	term->tputs(term, loc_buf);
+	term->tputs( term, "\t" );
 	rndrDvS( term, devices, sel_dev );
-	term->puts(term, "\tX: ");
+	term->tputs(term, "\tX: ");
 	memset( loc_buf, 0, sizeof(loc_buf) );
 	sprintf( loc_buf, "%d", devices[sel_dev].x );
-	term->puts(term, loc_buf);
-	term->puts(term, "\tY: ");
+	term->tputs(term, loc_buf);
+	term->tputs(term, "\tY: ");
 	sprintf( loc_buf, "%d", devices[sel_dev].y );
-	term->puts(term, loc_buf);
-	term->puts(term, "\tValue: ");
+	term->tputs(term, loc_buf);
+	term->tputs(term, "\tValue: ");
 	if ( devices[ sel_dev ].value )
-		term->puts(term, "HIGH");
+		term->tputs(term, "HIGH");
 	else
-		term->puts(term, "LOW");
-	term->putchar( term, '\t' );
-	if ( cursmode == DEV_MODE )
-		term->putchar( term, 'D' );
-	else if ( cursmode == CNX_MODE )
-		term->putchar( term, 'C' );
+		term->tputs(term, "LOW");
+	term->tputchar( term, '\t' );
+	if ( PRG_MODE == DEV_MODE )
+		term->tputchar( term, 'D' );
+	else if ( PRG_MODE == CNX_MODE )
+		term->tputchar( term, 'C' );
+	else if ( PRG_MODE == VID_MODE )
+		term->tputchar( term, 'V' );
 
 	/* Devices - left side of screen */
 	loc_y = 1;
 	/* loc_x = 57; */
 	loc_x = 63;
 	term->gotoxy( term, loc_x - 2, sel_dev + 1 );
-	term->puts( term, ">>");
+	term->tputs( term, ">>");
 	term->gotoxy( term, loc_x, loc_y );
 	for (i = 0; i < num_dev; ++i )
 	{
 		memset( loc_buf, 0, sizeof(loc_buf) );
 		sprintf( loc_buf, "%d", i );
-		term->puts( term, loc_buf );
-		term->puts( term, "\t" );
+		term->tputs( term, loc_buf );
+		term->tputs( term, "\t" );
 
 		rndrDvS( term, devices, i );
 
@@ -544,21 +432,375 @@ Device* devices;
 	}
 }
 
+
+char loadCirc( term, filename, devices, cnxtions )
+Geoff* term;
+char* filename;
+Device** devices;
+Cnxtion** cnxtions;
+{
+	return 0;
+}
+
+char saveCirc( term, filename, devices, cnxtions )
+Geoff* term;
+char* filename;
+Device* devices;
+Cnxtion* cnxtions;
+{
+	return 0;
+}
+
+char updt_scn( term, devices, cnxtions )
+Geoff* term;
+Device* devices;
+Cnxtion* cnxtions;
+{
+	int k;
+	int cdx1, cdy1, cdx2, cdy2;
+	term->clear( term );
+	/* if number of Devices > 0, draw Devices */
+	for (k=0; k<num_dev; ++k)
+	{
+		drawDv( term, &devices[k] );
+	}
+	
+	/* if number of Cnxtions > 0, draw Cnxtions */
+	for (k = 0; k < num_cnx; ++k)
+	{
+		char x1_off, y1_off, x2_off, y2_off;
+		unsigned char devsptr =  cnxtions[ k ].src_dev;
+		unsigned char devtptr =  cnxtions[ k ].trg_dev;
+
+		/* check if SIGNAL, if so, use 5 and 6 */
+		if ( devices[ devsptr ].type == SIGNAL )
+		{
+			x1_off = 4;
+			y1_off = 5;
+		}
+		/* else, draw from Device output line */
+		else
+		{
+			x1_off = 14;
+			y1_off = 15;
+		}
+
+		/* calculate endpoint based on input of target */
+		if ( cnxtions[ k ].input == 1 )
+		{
+			x2_off = 2;
+			y2_off = 3;
+		}
+		else
+		{
+			x2_off = 7;
+			y2_off = 8;
+		}
+
+		cdx1 = devices[ devsptr ].x + devices[ devsptr ].shape[ x1_off ];
+		cdy1 = devices[ devsptr ].y + devices[ devsptr ].shape[ y1_off ];
+		cdx2 = devices[ devtptr ].x + devices[ devtptr ].shape[ x2_off ];
+		cdy2 = devices[ devtptr ].y + devices[ devtptr ].shape[ y2_off ];
+		
+		term->drawLine( term,
+				cdx1,
+				cdy1,
+				cdx2,	
+				cdy2	
+				);
+	}
+
+	/* draw cursor at Device if in DEV_MODE */
+	if ( PRG_MODE == DEV_MODE )
+	{
+		if ( num_dev )
+			drawCurs( term, devices[sel_dev].x, devices[sel_dev].y );
+	}
+	/* draw cursor at Cnxtion if in CNX_MODE */
+	else if ( PRG_MODE == CNX_MODE )
+	{
+		if (num_cnx)
+		{
+			unsigned char srcIdx;
+			unsigned char trgIdx;
+			int srcX;
+			int srcY;
+			int trgX;
+			int trgY;
+			int srcXOff;
+			int srcYOff;
+			int trgXOff;
+			int trgYOff;
+			int midX;
+			int midY;
+
+			srcIdx = cnxtions[sel_cnx].src_dev;
+			trgIdx = cnxtions[sel_cnx].trg_dev;
+
+			if (srcIdx < num_dev && trgIdx < num_dev)
+			{
+				srcX = devices[srcIdx].x;
+				srcY = devices[srcIdx].y;
+				trgX = devices[trgIdx].x;
+				trgY = devices[trgIdx].y;
+
+				srcXOff = 0;
+				srcYOff = 0;
+				trgXOff = 0;
+				trgYOff = 0;
+
+				if (devices[srcIdx].type == SIGNAL)
+				{
+					srcXOff = 4;
+					srcYOff = 5;
+				}
+				else
+				{
+					srcXOff = 14;
+					srcYOff = 15;
+				}
+
+				if (cnxtions[sel_cnx].input == 1)
+				{
+					trgXOff = 2;
+					trgYOff = 3;
+				}
+				else
+				{
+					trgXOff = 7;
+					trgYOff = 8;
+				}
+
+				srcX += devices[srcIdx].shape[srcXOff];
+				srcY += devices[srcIdx].shape[srcYOff];
+				trgX += devices[trgIdx].shape[trgXOff];
+				trgY += devices[trgIdx].shape[trgYOff];
+
+				midX = (srcX + trgX) / 2;
+				midY = (srcY + trgY) / 2;
+
+				drawCurs( term, midX, midY );
+			}
+			else
+			{
+				
+			}
+		}
+	}
+	
+	/* if number of Devices > 0, simulate then draw Device info */
+	if ( num_dev )
+	{
+		simDv( devices );
+		/* prntDev( term, devices ); */
+	}
+	
+}
+
+/* parses the command buffer typed in */
+/* M{D/C/V}   Mode switch
+   S[num]     Select entity number
+   E{params}  Edit selected entity's properties
+   I          Insert entity based upon [M]ode
+*/
+char pars_buf(term, devices, cnxtions, com_buf)
+Geoff* term;
+Device* devices;
+Cnxtion* cnxtions;
+char* com_buf;
+{
+	char* ptr = com_buf;
+	Device* _dev_tmp;
+	Cnxtion* _cnx_tmp;
+	while (*ptr != '\0')
+	{
+		int num;
+		int numStrIndex;
+		char numStr[16]; /* Buffer to store the number string */
+		
+		switch (*ptr)
+		{
+			case 'M':
+				ptr++; /* Move to the next character (D/C/V) */
+				if (*ptr == 'D') PRG_MODE = DEV_MODE;
+				else if (*ptr == 'C') PRG_MODE = CNX_MODE;
+				else if (*ptr == 'V') PRG_MODE = VID_MODE;
+				else
+				{
+					term->tputs(term, "Invalid mode after 'M'.\r\n");
+				}
+				ptr++; /* Move past the mode character */
+				break;
+			case 'S':
+				ptr++; /* Move past 'S' */
+				num = 0;
+				while (isdigit(*ptr))
+				{
+					num = num * 10 + (*ptr - '0');
+					ptr++;
+				}
+				if (PRG_MODE == DEV_MODE) sel_dev = num;
+				else if (PRG_MODE == CNX_MODE) sel_cnx = num;
+				else
+				{
+					term->tputs(term, "Select requires DEV or CNX mode.\r\n");
+				}
+				break;
+			case 'E':
+				ptr++; /* Move past 'E' */
+				switch (*ptr)
+				{
+					case 'T':
+						ptr++; /* Move past 'T' */
+						if (PRG_MODE == DEV_MODE)
+						{
+							char* dev_type = "wzxnrodas";
+							int i;
+							for (i = 0; i < 9; ++i)
+							{
+								if (*ptr == dev_type[i]) break;
+							}
+							devices[sel_dev].type = devtyplu[i];
+							devices[sel_dev].shape = shapeTbl[i];
+							ptr++;
+						}
+						else
+						{
+							term->tputs(term, "Type edit requires DEV mode.\r\n");
+							ptr++;
+						}
+						break;
+					case 'X':
+					case 'Y':
+						numStrIndex = 0;
+						ptr++;
+						while (isdigit(*ptr))
+						{
+							numStr[numStrIndex++] = *ptr;
+							ptr++;
+						}
+						numStr[numStrIndex] = '\0';
+						if (PRG_MODE == DEV_MODE)
+						{
+							int num = atoi(numStr);
+							if (*(ptr - numStrIndex - 1) == 'X')
+							{
+								devices[sel_dev].x = num;
+							}
+							else
+							{
+								devices[sel_dev].y = num;
+							}
+						}
+						else
+						{
+							term->tputs(term, "X or Y edit requires DEV mode.\r\n");
+						}
+						break;
+				}
+				break;
+			case 'I':
+				ptr++; /* Move past 'E' */
+				if ( PRG_MODE == DEV_MODE )
+				{
+					num_dev++;
+					_dev_tmp=(Device*)realloc(devices,num_dev*sizeof(Device));
+					if (_dev_tmp==0)
+					{
+						term->tputs( term, "Memory reallocation failed!");
+						free(devices);
+						break;
+					}
+					devices=_dev_tmp;
+					setupDev( &devices[num_dev-1], SIGNAL, 100, 100 );
+					sel_dev=num_dev-1;
+					break;
+				}
+				else if ( PRG_MODE == CNX_MODE )
+				{
+					int src_dev = 0, trg_dev = 0, input = 0;
+					while (isdigit(*ptr))
+					{
+						src_dev = src_dev * 10 + (*ptr - '0');
+						ptr++;
+					}
+					if (*ptr != ':')
+					{
+						term->tputs(term, "Invalid connection format.\r\n");
+						break;
+					}
+					ptr++;
+					while (isdigit(*ptr))
+					{
+						trg_dev = trg_dev * 10 + (*ptr - '0');
+						ptr++;
+					}
+					if (*ptr != ':')
+					{
+						term->tputs(term, "Invalid connection format.\r\n");
+						break;
+					}
+					ptr++;
+					while (isdigit(*ptr))
+					{
+						input = input * 10 + (*ptr - '0');
+						ptr++;
+					}
+					if (input < 1 || input > 2 || src_dev >= num_dev || trg_dev >= num_dev)
+					{
+						term->tputs(term, "Invalid connection details.\r\n");
+						break;
+					}
+					num_cnx++;
+					_cnx_tmp = (Cnxtion*)realloc(cnxtions, num_cnx * sizeof(Cnxtion));
+					if (_cnx_tmp == NULL)
+					{
+						term->tputs(term, "Memory reallocation failed!\r\n");
+						free(cnxtions);
+						break;
+					}
+					cnxtions = _cnx_tmp;
+					cnxtions[num_cnx - 1].src_dev = src_dev;
+					cnxtions[num_cnx - 1].trg_dev = trg_dev;
+					cnxtions[num_cnx - 1].input = input;
+					devices[trg_dev].in_dev[input - 1] = src_dev;
+					sel_cnx = num_cnx - 1;
+				}
+				break;
+			case 'X':
+				break;
+			case 'R':
+				updt_scn(term, devices, cnxtions);
+				ptr++; /* Move past 'R' */
+				break;
+			case 'Q':
+				exit(0);
+				break;
+			default:
+				term->tputs(term, "Invalid command.\r\n");
+				ptr++; /* Move past the invalid character */
+				break;
+		}
+	}
+	free( _dev_tmp );
+	free( _cnx_tmp );
+	return 0;
+}
+
 int main()
 {
 	/* local vars */
 	Geoff gterm;
-	Device* devices;
-	Device* _dev_tmp;
-	Cnxtion* cnxtions;
-	Cnxtion* _cnx_tmp;
+	Device *devices;
+	Cnxtion *cnxtions;
 
 	int i;
-	char k_in;
+	char filename[16];
+	char com_buf[ 70 ];
+	/* char *filename = "circuit.crt"; */
 
 	/* definitions */
-	initTerm( &gterm, 18 );
-	cursmode = DEV_MODE;
+	initTerm( &gterm, TTYBASE );
 	num_dev = 1;
 	sel_dev = 0;
 	sel_cnx = 0;
@@ -571,276 +813,47 @@ int main()
 	devices = (Device*)malloc(sizeof(Device));
 	if (devices == NULL)
 	{
-		gterm.puts( &gterm, "Memory allocation failed!");
+		gterm.tputs( &gterm, "Memory allocation failed!");
 		return 1;
 	}
 	setupDev( &devices[i], SIGNAL, 20, 15 );
+	
+	updt_scn( &gterm, devices, cnxtions );
 
-	do
+	/* --------- MAIN LOOP ---------- */
+	/* read buffer */
+	while ( 1 )
 	{
-		int k;
-		int cdx1, cdy1, cdx2, cdy2;
-		gterm.clear( &gterm );
-		
-		/* if number of Devices > 0, draw Devices */
-		for (k=0; k<num_dev; ++k)
-		{
-			drawDv( &gterm, &devices[k] );
-		}
-		/* if number of Devices > 0, simulate then draw Device info */
-		if ( num_dev )
-		{
-			simDv( devices );
-			prntDev( &gterm, devices );
-		}
+		/* clear lower screen */
+		clrLwrSn( &gterm );
+		prntDev( &gterm, devices );
+		/* put ':' prompt */
+		gterm.gotoxy( &gterm, 0, 22 );
+		gterm.tputchar( &gterm, ':' );
 
-		/* if number of Cnxtions > 0, draw Cnxtions */
-		for (k = 0; k < num_cnx; ++k)
+		/*
+		if ( PRG_MODE != VID_MODE )
 		{
-			char x1_off, y1_off, x2_off, y2_off;
-			unsigned char devsptr =  cnxtions[ k ].src_dev;
-			unsigned char devtptr =  cnxtions[ k ].trg_dev;
-
-			/* check if SIGNAL, if so, use 5 and 6 */
-			if ( devices[ devsptr ].type == SIGNAL )
-			{
-				x1_off = 4;
-				y1_off = 5;
-			}
-			/* else, draw from Device output line */
-			else
-			{
-				x1_off = 14;
-				y1_off = 15;
-				
-				
-			}
-			
-			/* calculate endpoint based on input of target */
-			if ( cnxtions[ k ].input == 1 )
-			{
-				x2_off = 2;
-				y2_off = 3;
-			}
-			else
-			{
-				x2_off = 7;
-				y2_off = 8;
-			}
-			
-			cdx1 = devices[ devsptr ].x + devices[ devsptr ].shape[ x1_off ];
-			cdy1 = devices[ devsptr ].y + devices[ devsptr ].shape[ y1_off ];
-			cdx2 = devices[ devtptr ].x + devices[ devtptr ].shape[ x2_off ];
-			cdy2 = devices[ devtptr ].y + devices[ devtptr ].shape[ y2_off ];
-			
-			gterm.drawLine( &gterm,
-					cdx1,
-					cdy1,
-					cdx2,	
-					cdy2	
-					);
-		}
-
-		/* draw cursor at Device if in DEV_MODE */
-		if ( cursmode == DEV_MODE )
-		{
-			if ( num_dev )
-				drawCurs( &gterm, devices[sel_dev].x, devices[sel_dev].y );
-		}
-		/* draw cursor at Cnxtion if in CNX_MODE */
-		else if ( cursmode == CNX_MODE )
-		{
-			/*
-			if ( num_cnx )
-				drawCurs( &gterm, (cnxtions[sel_cnx].src_x + cnxtions[sel_cnx].trg_x) / 2,
-						  (cnxtions[sel_cnx].src_y + cnxtions[sel_cnx].trg_y) / 2);
 			*/
+			/* read buffer */
+			_scanf( &gterm, 's', com_buf );
+		/*
 		}
-
-		/* get keypress */
-		k_in = gterm.getch( &gterm );
-		switch ( k_in )
+		else
 		{
-			/* if no devices, do nothing at all */
-			if ( num_dev == 0 )
-				break;
-			/* force a simulation render */
-			case 'R':
-				break;
-			/* jump to Device instead of scrolling */
-			case 'J':
-				clrLwrSn( &gterm );
-				gterm.puts( &gterm, "Jump to device: " );
-				sel_dev = -1;
-				while ( sel_dev < 0 && sel_dev < num_dev )
-				{
-					_scanf( &gterm, 'd', &sel_dev);
-				}
-				break;
-			/* change mode between Device and Cnxtion */
-			case 'M':
-				if ( cursmode == DEV_MODE )
-					cursmode = CNX_MODE;
-				else if ( cursmode == CNX_MODE )
-					cursmode = DEV_MODE;
-				break;
-			/* move Devices around the screen s well as moving them alot */
-			case 'd':
-				devices[sel_dev].x += 10;
-				break;
-			case 'D':
-				devices[sel_dev].x += 50;
-				break;
-			case 'a':
-				devices[sel_dev].x -= 10;
-				break;
-			case 'A':
-				devices[sel_dev].x -= 50;
-				break;
-			case 'w':
-				devices[sel_dev].y -= 10;
-				break;
-			case 'W':
-				devices[sel_dev].y -= 50;
-				break;
-			case 's':
-				devices[sel_dev].y += 10;
-				break;
-			case 'S':
-				devices[sel_dev].y += 50;
-				break;
-			/* change Device's scale */
-			/*
-			case '+':
-				devices[sel_dev].scale += 0.2;
-				break;
-			case '-':
-				devices[sel_dev].scale -= 0.2;
-				break;
-			*/
-			/* scroll through selected Devices or Cnxtions */
-			case '>':
-				if ( cursmode == DEV_MODE )
-					sel_dev = (sel_dev + 1) >= num_dev ? 0 : sel_dev + 1;
-				else if ( cursmode == CNX_MODE )
-					sel_cnx = (sel_cnx + 1) >= num_cnx ? 0 : sel_cnx + 1;
-				break;
-			case '<':
-				if ( cursmode == DEV_MODE )
-					sel_dev = (sel_dev - 1) < 0 ? num_dev - 1 : sel_dev - 1;
-				else if ( cursmode == CNX_MODE )
-					sel_cnx = (sel_cnx - 1) < 0 ? num_cnx - 1 : sel_cnx - 1;
-				break;
-			/* edit selected Device */
-			case 'e':
-				editDv( &gterm, &devices[sel_dev] );
-				break;
-			/* insert Device or Cnxtion depending on cursmode */
-			case 'i':
-				if ( cursmode == DEV_MODE )
-				{
-					num_dev++;
-					_dev_tmp=(Device*)realloc(devices,num_dev*sizeof(Device));
-					if (_dev_tmp==0)
-					{
-						gterm.puts( &gterm, "Memory reallocation failed!");
-						free(devices);
-						return 1;
-					}
-					devices=_dev_tmp;
-					setupDev( &devices[num_dev-1], SIGNAL, 100, 100 );
-					sel_dev=num_dev-1;
-					break;
-				}
-				else if ( cursmode == CNX_MODE )
-				{
-					num_cnx++;
-					_cnx_tmp=(Cnxtion*)realloc(cnxtions,num_cnx*sizeof(Cnxtion));
-					if (_cnx_tmp==0)
-					{
-						gterm.puts( &gterm, "Memory reallocation failed!");
-						free(cnxtions);
-						return 1;
-					}
-					cnxtions=_cnx_tmp;
-					connDv( &gterm, devices, cnxtions );
-					break;
-				}
-			/* delete Device or Cnxtion depending on cursmode */
-			case 'x':
-				if ( cursmode == DEV_MODE )
-				{
-					if (num_dev>0)
-					{
-						char i;
-						for (i=sel_dev; i<num_dev; ++i)
-						{
-							devices[i]=devices[i+1];
-						}
-						num_dev--;
-					}
-					if ( num_dev == 0 )
-					{
-						free(devices);
-						devices = NULL;
-						sel_dev = 0;
-					}
-					else
-					{
-						_dev_tmp=(Device*)realloc(devices,num_dev*sizeof(Device));
-						if (_dev_tmp == NULL)
-						{
-							gterm.puts( &gterm, "Memory reallocation failed!");
-							free(devices);
-							return 1;
-						}
-						devices=_dev_tmp;
-						sel_dev=num_dev-1;
-					}
-					break;
-				}
-				else if ( cursmode == CNX_MODE )
-				{
-					if (num_cnx>0)
-					{
-						char i;
-						for (i=sel_cnx; i<num_cnx; ++i)
-						{
-							cnxtions[i]=cnxtions[i+1];
-						}
-						num_cnx--;
-					}
-					if ( num_cnx == 0 )
-					{
-						free(cnxtions);
-						cnxtions = NULL;
-						sel_cnx = 0;
-					}
-					else
-					{
-						_cnx_tmp=(Cnxtion*)realloc(cnxtions,num_cnx*sizeof(Cnxtion));
-						if (_cnx_tmp == NULL)
-						{
-							gterm.puts( &gterm, "Memory reallocation failed!");
-							free(cnxtions);
-							return 1;
-						}
-						cnxtions=_cnx_tmp;
-						sel_cnx=num_cnx-1;
-					}
-					break;
-				}
-			default:
-				break;
+			
 		}
-	} while ( k_in != 'q' );
+		*/
+
+		/* parse command buffer */
+		if ( pars_buf( &gterm, devices, cnxtions, com_buf ) < 0 )
+			break;
+	}
 
 	gterm.clear( &gterm );
 	
 	free(devices);
-	free(_dev_tmp);
 	free(cnxtions);
-	free(_cnx_tmp);
 
 	return 0;
 }
