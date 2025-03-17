@@ -39,6 +39,11 @@ please link against my cpm and geofftrm libraries
 #define	DEV_MODE	1
 #define	CNX_MODE	2
 
+/* Error codes */
+#define	INV_PARM	-1
+#define	MEM_FAIL	-2
+#define	INV_MOD		-3
+
 unsigned char num_dev;		/* number of devices */
 unsigned char num_cnx;		/* number of connections */
 char sel_dev;		/* selected device */
@@ -176,7 +181,7 @@ determines if c is an ascii digit
 char isdigit(c)
 char c;
 {
-  return (c >= '0' && c <= '9');
+	return (c >= '0' && c <= '9');
 }
 
 /* scanf
@@ -327,9 +332,10 @@ int i;
 /* Print Devices
 populates screen's display with varioius information about Devices and selected Device
 */
-void prntDev( term, devices )
+void prntBar( term, devices, cnxtions )
 Geoff* term;
 Device* devices;
+Cnxtion* cnxtions;
 {
 	char loc_buf[16];
 	unsigned char i;
@@ -337,50 +343,101 @@ Device* devices;
 
 	/* Selected Device - bottom of screen */
 	term->gotoxy( term, 0, 21 );
-	term->tputs( term, "Device: ");
-	memset( loc_buf, 0, sizeof(loc_buf) );
-	sprintf( loc_buf, "%d", sel_dev );
-	term->tputs(term, loc_buf);
-	term->tputs( term, "\t" );
-	rndrDvS( term, devices, sel_dev );
-	term->tputs(term, "\tX: ");
-	memset( loc_buf, 0, sizeof(loc_buf) );
-	sprintf( loc_buf, "%d", devices[sel_dev].x );
-	term->tputs(term, loc_buf);
-	term->tputs(term, "\tY: ");
-	sprintf( loc_buf, "%d", devices[sel_dev].y );
-	term->tputs(term, loc_buf);
-	term->tputs(term, "\tValue: ");
-	if ( devices[ sel_dev ].value )
-		term->tputs(term, "HIGH");
-	else
-		term->tputs(term, "LOW");
-	term->tputchar( term, '\t' );
-	if ( PRG_MODE == DEV_MODE )
-		term->tputchar( term, 'D' );
-	else if ( PRG_MODE == CNX_MODE )
-		term->tputchar( term, 'C' );
-	else if ( PRG_MODE == VID_MODE )
-		term->tputchar( term, 'V' );
-
-	/* Devices - left side of screen */
-	loc_y = 1;
-	/* loc_x = 57; */
-	loc_x = 63;
-	term->gotoxy( term, loc_x - 2, sel_dev + 1 );
-	term->tputs( term, ">>");
-	term->gotoxy( term, loc_x, loc_y );
-	for (i = 0; i < num_dev; ++i )
+	if ( ( PRG_MODE == DEV_MODE ) || ( PRG_MODE == VID_MODE ) )
 	{
+		term->tputs( term, "Device: ");
 		memset( loc_buf, 0, sizeof(loc_buf) );
-		sprintf( loc_buf, "%d", i );
-		term->tputs( term, loc_buf );
+		sprintf( loc_buf, "%d", sel_dev );
+		term->tputs(term, loc_buf);
 		term->tputs( term, "\t" );
-
-		rndrDvS( term, devices, i );
-
-		loc_y++;
+		rndrDvS( term, devices, sel_dev );
+		term->tputs(term, "\tX: ");
+		memset( loc_buf, 0, sizeof(loc_buf) );
+		sprintf( loc_buf, "%d", devices[sel_dev].x );
+		term->tputs(term, loc_buf);
+		term->tputs(term, "\tY: ");
+		sprintf( loc_buf, "%d", devices[sel_dev].y );
+		term->tputs(term, loc_buf);
+		term->tputs(term, "\tValue: ");
+		if ( devices[ sel_dev ].value )
+			term->tputs(term, "HIGH");
+		else
+			term->tputs(term, "LOW");
+		term->tputchar( term, '\t' );
+		if ( PRG_MODE == DEV_MODE )
+			term->tputchar( term, 'D' );
+		else if ( PRG_MODE == CNX_MODE )
+			term->tputchar( term, 'C' );
+		else if ( PRG_MODE == VID_MODE )
+			term->tputchar( term, 'V' );
+		
+		/* Devices - left side of screen */
+		loc_y = 1;
+		/* loc_x = 57; */
+		loc_x = 63;
+		term->gotoxy( term, loc_x - 2, sel_dev + 1 );
+		term->tputs( term, ">>");
 		term->gotoxy( term, loc_x, loc_y );
+		for (i = 0; i < num_dev; ++i )
+		{
+			memset( loc_buf, 0, sizeof(loc_buf) );
+			sprintf( loc_buf, "%d", i );
+			term->tputs( term, loc_buf );
+			term->tputs( term, "\t" );
+
+			rndrDvS( term, devices, i );
+
+			loc_y++;
+			term->gotoxy( term, loc_x, loc_y );
+		}
+	}
+	else
+	{
+		term->tputs( term, "Connection: ");
+		memset( loc_buf, 0, sizeof(loc_buf) );
+		sprintf( loc_buf, "%d", sel_cnx );
+		term->tputs(term, loc_buf);
+		term->tputs( term, "\t" );
+		term->tputs(term, "Source: ");
+		rndrDvS( term, devices, cnxtions[ sel_cnx ].src_dev );
+		term->tputs(term, "\tTarget: ");
+		rndrDvS( term, devices, cnxtions[ sel_cnx ].trg_dev );
+		
+		term->tputs(term, "\t\t");
+		
+		if ( PRG_MODE == DEV_MODE )
+			term->tputchar( term, 'D' );
+		else if ( PRG_MODE == CNX_MODE )
+			term->tputchar( term, 'C' );
+		else if ( PRG_MODE == VID_MODE )
+			term->tputchar( term, 'V' );
+		
+		/* Devices - left side of screen */
+		loc_y = 1;
+		/* loc_x = 57; */
+		loc_x = 63;
+		term->gotoxy( term, loc_x - 2, sel_cnx + 1 );
+		term->tputs( term, ">>");
+		term->gotoxy( term, loc_x, loc_y );
+		for (i = 0; i < num_cnx; ++i )
+		{
+			memset( loc_buf, 0, sizeof(loc_buf) );
+			sprintf( loc_buf, "%d", i );
+			term->tputs( term, loc_buf );
+			term->tputs( term, "\t" );
+
+			memset( loc_buf, 0, sizeof(loc_buf) );
+			sprintf( loc_buf, "%d", cnxtions[ i ].src_dev );
+			term->tputs( term, loc_buf );
+			term->tputs( term, "\t" );
+			
+			memset( loc_buf, 0, sizeof(loc_buf) );
+			sprintf( loc_buf, "%d", cnxtions[ i ].trg_dev );
+			term->tputs( term, loc_buf );
+
+			loc_y++;
+			term->gotoxy( term, loc_x, loc_y );
+		}
 	}
 }
 
@@ -439,6 +496,7 @@ char* filename;
 Device** devices;
 Cnxtion** cnxtions;
 {
+	
 	return 0;
 }
 
@@ -448,6 +506,7 @@ char* filename;
 Device* devices;
 Cnxtion* cnxtions;
 {
+	
 	return 0;
 }
 
@@ -458,6 +517,7 @@ Cnxtion* cnxtions;
 {
 	int k;
 	int cdx1, cdy1, cdx2, cdy2;
+
 	term->clear( term );
 	/* if number of Devices > 0, draw Devices */
 	for (k=0; k<num_dev; ++k)
@@ -511,7 +571,7 @@ Cnxtion* cnxtions;
 	}
 
 	/* draw cursor at Device if in DEV_MODE */
-	if ( PRG_MODE == DEV_MODE )
+	if ( ( PRG_MODE == DEV_MODE ) || ( PRG_MODE == VID_MODE ) )
 	{
 		if ( num_dev )
 			drawCurs( term, devices[sel_dev].x, devices[sel_dev].y );
@@ -592,7 +652,7 @@ Cnxtion* cnxtions;
 	if ( num_dev )
 	{
 		simDv( devices );
-		/* prntDev( term, devices ); */
+		prntBar( term, devices, cnxtions );
 	}
 	
 }
@@ -605,13 +665,16 @@ Cnxtion* cnxtions;
 */
 char pars_buf(term, devices, cnxtions, com_buf)
 Geoff* term;
-Device* devices;
-Cnxtion* cnxtions;
+Device** devices;
+Cnxtion** cnxtions;
 char* com_buf;
 {
+	int src_dev, trg_dev, input;
+	/* temp pointers */
+	Device* _dev_tmp;
+	Cnxtion* _cnx_tmp;
 	char* ptr = com_buf;
-	Device* _dev_tmp = NULL;
-	Cnxtion* _cnx_tmp = NULL;
+	char ret = 0;
 	while (*ptr != '\0')
 	{
 		int num;
@@ -627,7 +690,7 @@ char* com_buf;
 				else if (*ptr == 'V') PRG_MODE = VID_MODE;
 				else
 				{
-					term->tputs(term, "Invalid mode after 'M'.\r\n");
+					ret = INV_PARM;
 				}
 				ptr++; /* Move past the mode character */
 				break;
@@ -643,7 +706,7 @@ char* com_buf;
 				else if (PRG_MODE == CNX_MODE) sel_cnx = num;
 				else
 				{
-					term->tputs(term, "Select requires DEV or CNX mode.\r\n");
+					ret = INV_MOD;
 				}
 				break;
 			case 'E':
@@ -660,13 +723,13 @@ char* com_buf;
 							{
 								if (*ptr == dev_type[i]) break;
 							}
-							devices[sel_dev].type = devtyplu[i];
-							devices[sel_dev].shape = shapeTbl[i];
+							(*devices)[sel_dev].type = devtyplu[i];
+							(*devices)[sel_dev].shape = shapeTbl[i];
 							ptr++;
 						}
 						else
 						{
-							term->tputs(term, "Type edit requires DEV mode.\r\n");
+							ret = INV_MOD;
 							ptr++;
 						}
 						break;
@@ -685,40 +748,57 @@ char* com_buf;
 							int num = atoi(numStr);
 							if (*(ptr - numStrIndex - 1) == 'X')
 							{
-								devices[sel_dev].x = num;
+								(*devices)[sel_dev].x = num;
 							}
 							else
 							{
-								devices[sel_dev].y = num;
+								(*devices)[sel_dev].y = num;
 							}
 						}
 						else
 						{
-							term->tputs(term, "X or Y edit requires DEV mode.\r\n");
+							ret = INV_MOD;
 						}
+						break;
+					case 'V':
+						ptr++;
+						input = 0;
+						while (isdigit(*ptr))
+						{
+							input = input * 10 + (*ptr - '0');
+							ptr++;
+						}
+						if ( ( input != 0 ) && ( input != 1 ) )
+						{
+							ret = INV_PARM;
+							break;
+						}
+						( *devices )[ sel_dev ].value = input;
 						break;
 				}
 				break;
 			case 'I':
-				ptr++; /* Move past 'E' */
+				ptr++; /* Move past 'I' */
 				if ( PRG_MODE == DEV_MODE )
 				{
 					num_dev++;
-					_dev_tmp=(Device*)realloc(devices,num_dev*sizeof(Device));
+					_dev_tmp=(Device*)realloc(*devices,num_dev*sizeof(Device));
 					if (_dev_tmp==0)
 					{
-						term->tputs( term, "Memory reallocation failed!");
-						free(devices);
+						ret = MEM_FAIL;
+						free(*devices);
 						break;
 					}
-					devices=_dev_tmp;
-					setupDev( &devices[num_dev-1], SIGNAL, 100, 100 );
+					*devices=_dev_tmp;
+					setupDev( &(*devices)[num_dev-1], SIGNAL, 100, 100 );
 					sel_dev=num_dev-1;
 					break;
 				}
 				else if ( PRG_MODE == CNX_MODE )
 				{
-					int src_dev = 0, trg_dev = 0, input = 0;
+					src_dev = 0;
+					trg_dev = 0;
+					input = 0;
 					while (isdigit(*ptr))
 					{
 						src_dev = src_dev * 10 + (*ptr - '0');
@@ -726,7 +806,7 @@ char* com_buf;
 					}
 					if (*ptr != ':')
 					{
-						term->tputs(term, "Invalid connection format.\r\n");
+						ret = MEM_FAIL;
 						break;
 					}
 					ptr++;
@@ -737,7 +817,7 @@ char* com_buf;
 					}
 					if (*ptr != ':')
 					{
-						term->tputs(term, "Invalid connection format.\r\n");
+						ret = INV_PARM;
 						break;
 					}
 					ptr++;
@@ -748,43 +828,114 @@ char* com_buf;
 					}
 					if (input < 1 || input > 2 || src_dev >= num_dev || trg_dev >= num_dev)
 					{
-						term->tputs(term, "Invalid connection details.\r\n");
+						ret = INV_PARM;
 						break;
 					}
 					num_cnx++;
-					_cnx_tmp = (Cnxtion*)realloc(cnxtions, num_cnx * sizeof(Cnxtion));
-					if (_cnx_tmp == NULL)
+					_cnx_tmp=(Cnxtion*)realloc(*cnxtions,num_cnx*sizeof(Cnxtion));
+					if (_cnx_tmp==0)
 					{
-						term->tputs(term, "Memory reallocation failed!\r\n");
-						free(cnxtions);
+						ret = MEM_FAIL;
+						free(*cnxtions);
 						break;
 					}
-					cnxtions = _cnx_tmp;
-					cnxtions[num_cnx - 1].src_dev = src_dev;
-					cnxtions[num_cnx - 1].trg_dev = trg_dev;
-					cnxtions[num_cnx - 1].input = input;
-					devices[trg_dev].in_dev[input - 1] = src_dev;
+					*cnxtions = _cnx_tmp;
+					(*cnxtions)[num_cnx - 1].src_dev = src_dev;
+					(*cnxtions)[num_cnx - 1].trg_dev = trg_dev;
+					(*cnxtions)[num_cnx - 1].input = input;
+					(*devices)[trg_dev].in_dev[input - 1] = src_dev;
 					sel_cnx = num_cnx - 1;
 				}
 				break;
 			case 'X':
+				ptr++;
+				if ( PRG_MODE == DEV_MODE )
+				{
+					if (num_dev>0)
+					{
+						char i;
+						for (i=sel_dev; i<num_dev; ++i)
+						{
+							(*devices)[i]=(*devices)[i+1];
+						}
+						num_dev--;
+					}
+					if ( num_dev == 0 )
+					{
+						free(*devices);
+						*devices = NULL;
+						sel_dev = 0;
+					}
+					else
+					{
+						_dev_tmp=(Device*)realloc(*devices,num_dev*sizeof(Device));
+						if (_dev_tmp == NULL)
+						{
+							ret = MEM_FAIL;
+							free(*devices);
+							break;
+						}
+						*devices=_dev_tmp;
+						sel_dev=num_dev-1;
+					}
+					break;
+				}
+				else if ( PRG_MODE == CNX_MODE )
+				{
+					if (num_cnx>0)
+					{
+						char i;
+						for (i=sel_cnx; i<num_cnx; ++i)
+						{
+							(*cnxtions)[i]=(*cnxtions)[i+1];
+						}
+						num_cnx--;
+					}
+					if ( num_cnx == 0 )
+					{
+						free(*cnxtions);
+						*cnxtions = NULL;
+						sel_cnx = 0;
+					}
+					else
+					{
+						_cnx_tmp=(Cnxtion*)realloc(*cnxtions,num_cnx*sizeof(Cnxtion));
+						if (_cnx_tmp == NULL)
+						{
+							ret = MEM_FAIL;
+							free(*cnxtions);
+							break;
+						}
+						*cnxtions=_cnx_tmp;
+						sel_cnx=num_cnx-1;
+					}
+					break;
+				}
 				break;
 			case 'R':
-				updt_scn(term, devices, cnxtions);
 				ptr++; /* Move past 'R' */
+				updt_scn(term, *devices, *cnxtions);
+				break;
+			case 's':
+				ptr++;
+				saveCirc( term, com_buf + 1, *devices, *cnxtions );
+				return ret;
+				break;
+			case 'o':
+				ptr++;
+				loadCirc( term, com_buf + 1, &devices, &cnxtions );
+				return ret;
 				break;
 			case 'Q':
 				exit(0);
 				break;
 			default:
-				term->tputs(term, "Invalid command.\r\n");
+				ret = INV_PARM;
 				ptr++; /* Move past the invalid character */
 				break;
 		}
 	}
-	if (_dev_tmp != NULL) free(_dev_tmp);
-	if (_cnx_tmp != NULL) free(_cnx_tmp);
-	return 0;
+	return ret;
 }
 
 int main()
@@ -796,7 +947,7 @@ int main()
 
 	int i;
 	char filename[16];
-	char com_buf[ 70 ];
+	char com_buf[ SCANBUF ];
 	/* char *filename = "circuit.crt"; */
 
 	/* definitions */
@@ -826,27 +977,60 @@ int main()
 	{
 		/* clear lower screen */
 		clrLwrSn( &gterm );
-		prntDev( &gterm, devices );
+		prntBar( &gterm, devices, cnxtions );
 		/* put ':' prompt */
 		gterm.gotoxy( &gterm, 0, 22 );
 		gterm.tputchar( &gterm, ':' );
+		memset( com_buf, 0, SCANBUF );
 
-		/*
 		if ( PRG_MODE != VID_MODE )
 		{
-			*/
 			/* read buffer */
 			_scanf( &gterm, 's', com_buf );
-		/*
 		}
 		else
 		{
-			
+			char k_in;
+			k_in = gterm.getch( &gterm );
+			switch ( k_in )
+			{
+				case 'M':
+					PRG_MODE = DEV_MODE;
+					goto skpvmend;
+					break;
+				case 'w':
+					devices[sel_dev].y -= 10;
+					break;
+				case 'a':
+					devices[sel_dev].x -= 10;
+					break;
+				case 's':
+					devices[sel_dev].y += 10;
+					break;
+				case 'd':
+					devices[sel_dev].x += 10;
+					break;
+				case 'W':
+					devices[sel_dev].y -= 50;
+					break;
+				case 'A':
+					devices[sel_dev].x -= 50;
+					break;
+				case 'S':
+					devices[sel_dev].y += 50;
+					break;
+				case 'D':
+					devices[sel_dev].x += 50;
+					break;
+				default:
+					break;
+			}
+			updt_scn( &gterm, devices, cnxtions );
 		}
-		*/
+skpvmend:
 
 		/* parse command buffer */
-		if ( pars_buf( &gterm, devices, cnxtions, com_buf ) < 0 )
+		if ( pars_buf( &gterm, &devices, &cnxtions, com_buf ) < 0 )
 			break;
 	}
 
