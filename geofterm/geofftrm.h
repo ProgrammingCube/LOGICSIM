@@ -23,9 +23,9 @@ typedef struct sGeoff
 	unsigned char _crtio;
 	unsigned char _buf[CRTBUFS];
 	char (*getch)();
-	char (*getchar)();
-	void (*putchar)();
-	void (*puts)();
+	char (*tgetchar)();
+	void (*tputchar)();
+	void (*tputs)();
 	void (*cursor)();	/* not sure what to do with this, going to be modes */
 	void (*gotoxy)();
 	void (*clear)();
