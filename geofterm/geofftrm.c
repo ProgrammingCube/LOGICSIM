@@ -22,29 +22,25 @@ Geoff* term;
 	return in( term->_crtio );
 }
 
+void _geofpch( term, c )
+Geoff* term;
+char c;
+{
+	out( term->_crtio, c );
+}
+
 char _geofgcr( term )
 Geoff* term;
 {
 	char c, first_c = 0;
 	while ( 1 )
 	{
-		/*
-		while (!(in(term->_crtbase) & 1));
-		term->putchar(term, c = in(term->_crtio) );
-		*/
-		term->putchar( term, c = ( term->getch( term ) ) );
+		term->tputchar( term, c = ( term->getch( term ) ) );
 
 		if ( !first_c ) first_c = c;
 
 		if ( c == '\r' || c == '\n' ) return first_c;
 	}
-}
-
-void _geofpch( term, c )
-Geoff* term;
-char c;
-{
-	out( term->_crtio, c );
 }
 
 void _geofpts( term, s )
@@ -53,7 +49,7 @@ char* s;
 {
 	char* p = s;
 	while ( *p )
-		term->putchar( term, *p++ );
+		term->tputchar( term, *p++ );
 }
 
 void _geofcrs( term, m )
@@ -68,13 +64,13 @@ int x, y;
 {
 	memset( term->_buf, 0, CRTBUFS );
 	sprintf( term->_buf, "\033[%d;%dH", y, x );
-	term->puts( term, term->_buf );
+	term->tputs( term, term->_buf );
 }
 
 void _geofclr( term )
 Geoff* term;
 {
-	term->puts( term, "\033[2J\033[H" );
+	term->tputs( term, "\033[2J\033[H" );
 }
 
 void _geoflin( term, x, y, u, v )
@@ -83,7 +79,7 @@ int x, y, u, v;
 {
 	memset( term->_buf, 0, CRTBUFS );
 	sprintf( term->_buf, "\033[Z1;%d;%d;%d;%dZ", x, y, u, v );
-	term->puts( term, term->_buf );
+	term->tputs( term, term->_buf );
 }
 
 void _geofbox( term, x, y, w, h, m )
@@ -97,7 +93,7 @@ char m;
 		m = 3;
 	memset( term->_buf, 0, CRTBUFS );
 	sprintf( term->_buf, "\033[Z%d;%d;%d;%d;%dZ", m, x, y, x + w, y + h );
-	term->puts( term, term->_buf );
+	term->tputs( term, term->_buf );
 }
 
 void _geofcrc( term, x, y, r, m )
@@ -111,7 +107,7 @@ char m;
 		m = 5;
 	memset( term->_buf, 0, CRTBUFS );
 	sprintf( term->_buf, "\033[Z%d;%d;%d;%dZ", m, x, y, r );
-	term->puts( term, term->_buf );
+	term->tputs( term, term->_buf );
 }
 
 void initTerm( term, crtbase )
@@ -121,9 +117,9 @@ unsigned char crtbase;
 	term->_crtbase = crtbase;
 	term->_crtio   = crtbase + 1;
 	term->getch    = &_geofgch;
-	term->putchar  = &_geofpch;
-	term->getchar  = &_geofgcr;
-	term->puts     = &_geofpts;
+	term->tputchar  = &_geofpch;
+	term->tgetchar  = &_geofgcr;
+	term->tputs     = &_geofpts;
 	term->cursor   = &_geofcrs;
 	term->gotoxy   = &_geofgxy;
 	term->clear    = &_geofclr;
